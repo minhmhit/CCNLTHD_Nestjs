@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: todos-postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: todos_db
+    ports:
+      - '5432:5432'
+    volumes:
+      - todos-pgdata:/var/lib/postgresql/data
+
+volumes:
+  todos-pgdata:
