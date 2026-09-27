@@ -9,6 +9,7 @@ import {
   Headers,
   Query,
   HttpCode,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { CreateTodoDto } from './dto/create-todo.dto';
 import { UpdateTodoDto } from './dto/update-todo.dto';
@@ -21,8 +22,8 @@ export class TodosController {
     return `lay todos voi priority ${queryParamsDto.priority} va limit ${queryParamsDto.limit} , ${queryParamsDto.page}`;
   }
   @Get(':id')
-  getTodoById(@Param() param: { id: string }) {
-    return param.id;
+  getTodoById(@Param('id', ParseIntPipe) id: number) {
+    return id;
   }
 
   @Post()
@@ -37,13 +38,16 @@ export class TodosController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateTodoDto: UpdateTodoDto) {
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateTodoDto: UpdateTodoDto,
+  ) {
     return `update todo ${id} voi body ${JSON.stringify(updateTodoDto)}`;
   }
 
   @HttpCode(204)
   @Delete(':id')
-  remove(@Param('id') id: string) {
+  remove(@Param('id', ParseIntPipe) id: number) {
     return `Remove todo with id ${id}`;
   }
 }
