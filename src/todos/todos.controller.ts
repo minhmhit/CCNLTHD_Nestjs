@@ -10,16 +10,15 @@ import {
   Query,
   HttpCode,
 } from '@nestjs/common';
+import { CreateTodoDto } from './dto/create-todo.dto/create-todo.dto';
+import { UpdateTodoDto } from './dto/update-todo.dto/update-todo.dto';
+import { QueryParamsDto } from './dto/query-params.dto/query-params.dto';
 
 @Controller('todos')
 export class TodosController {
   @Get()
-  findAll(
-    @Query('priority') priotity?: 'HIGH' | 'MEDIUM' | 'LOW',
-    @Query('limit') limit?: string,
-    @Query('page') page?: string,
-  ) {
-    return `lay todos voi priority ${priotity} va limit ${limit} va page ${page}`;
+  findAll(@Query() queryParamsDto: QueryParamsDto) {
+    return `lay todos voi priority ${queryParamsDto.priority} va limit ${queryParamsDto.limit} , ${queryParamsDto.page}`;
   }
   @Get(':id')
   getTodoById(@Param() param: { id: string }) {
@@ -27,16 +26,19 @@ export class TodosController {
   }
 
   @Post()
-  create(@Body() body: any, @Headers('authorization') auth: string) {
+  create(
+    @Body() createTodoDto: CreateTodoDto,
+    @Headers('authorization') auth: string,
+  ) {
     if (auth) {
-      return 'da tao todo ' + body.title;
+      return 'da tao todo: ' + JSON.stringify(createTodoDto);
     }
     return 'ban chua dang nhap';
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: any) {
-    return `Update todo with id ${id} and body ${body}`;
+  update(@Param('id') id: string, @Body() updateTodoDto: UpdateTodoDto) {
+    return `update todo ${id} voi body ${JSON.stringify(updateTodoDto)}`;
   }
 
   @HttpCode(204)
