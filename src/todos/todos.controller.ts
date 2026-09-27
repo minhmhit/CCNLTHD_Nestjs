@@ -10,9 +10,9 @@ import {
   Query,
   HttpCode,
 } from '@nestjs/common';
-import { CreateTodoDto } from './dto/create-todo.dto/create-todo.dto';
-import { UpdateTodoDto } from './dto/update-todo.dto/update-todo.dto';
-import { QueryParamsDto } from './dto/query-params.dto/query-params.dto';
+import { CreateTodoDto } from './dto/create-todo.dto';
+import { UpdateTodoDto } from './dto/update-todo.dto';
+import { QueryParamsDto } from './dto/query-params.dto';
 
 @Controller('todos')
 export class TodosController {
