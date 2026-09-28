@@ -1,13 +1,19 @@
-import { Todo } from 'src/entities/todo.entity';
+import { Todo } from 'src/todos/entities/todo.entity';
 import { CreateTodoDto } from './dto/create-todo.dto';
 import { QueryParamsDto } from './dto/query-params.dto';
 import { UpdateTodoDto } from './dto/update-todo.dto';
 import { TodosRepository } from './todos.repository';
 import { Injectable } from '@nestjs/common';
+import { CategoriesService } from 'src/categories/categories.service';
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class TodosService {
-  constructor(private todosRepository: TodosRepository) {}
+  constructor(
+    private todosRepository: TodosRepository,
+    private readonly categoriesService: CategoriesService,
+    private readonly usersService: UsersService,
+  ) {}
 
   findAll(queryParamsDto: QueryParamsDto): Todo[] {
     let todos = this.todosRepository.findAll();
@@ -30,6 +36,18 @@ export class TodosService {
   }
 
   create(createTodoDto: CreateTodoDto) {
+    const user = this.usersService.findById(createTodoDto.userId);
+    if (!user) {
+      throw new Error(`khong tim duoc user co ID ${createTodoDto.userId}`);
+    }
+    if (createTodoDto.categoryId) {
+      const category = this.categoriesService.findOne(createTodoDto.categoryId);
+      if (!category) {
+        throw new Error(
+          `khong tim duoc category co ID ${createTodoDto.categoryId}`,
+        );
+      }
+    }
     return this.todosRepository.create(createTodoDto);
   }
 

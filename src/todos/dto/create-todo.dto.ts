@@ -35,4 +35,9 @@ export class CreateTodoDto {
     message: 'categoryId phai la 1 so nguyen',
   })
   categoryId?: number;
+
+  @IsInt({
+    message: 'userId phai la 1 so nguyen',
+  })
+  userId!: number;
 }
