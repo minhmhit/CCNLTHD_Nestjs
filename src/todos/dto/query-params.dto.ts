@@ -19,5 +19,5 @@ export class QueryParamsDto {
     message: `priority phai la mot trong ${Object.values(TodoPriority as object).join(', ')}`,
   })
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  priority?: TodoPriority = TodoPriority.MEDIUM;
+  priority?: TodoPriority;
 }

@@ -6,7 +6,7 @@ import { UpdateTodoDto } from './dto/update-todo.dto';
 import { TodoStatus } from './enums/todo-status.enum';
 import { TodoPriority } from './enums/todo-priority.enum';
 
-const TODOS_FILE = path.join(__dirname, '..', 'todos', 'todos.json');
+const TODOS_FILE = path.join(__dirname, 'todos.json');
 
 export class TodosRepository {
   private readFromFile(): Todo[] {
