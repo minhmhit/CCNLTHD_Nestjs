@@ -16,7 +16,8 @@ export class QueryParamsDto {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   @IsOptional()
   @IsEnum(TodoPriority as object, {
-    message: `priority phai la mot trong ${Object.values(TodoPriority).join(', ')}`,
+    message: `priority phai la mot trong ${Object.values(TodoPriority as object).join(', ')}`,
   })
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   priority?: TodoPriority = TodoPriority.MEDIUM;
 }
