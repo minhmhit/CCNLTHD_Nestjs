@@ -1,0 +1,101 @@
+[
+  {
+    "id": 1,
+    "title": "Học NestJS cơ bản",
+    "description": "Hoàn thành chương 1 và chương 2 của khoá học",
+    "status": "INPROGRESS",
+    "priority": "HIGH",
+    "categoryId": 1,
+    "createdAt": "2025-01-10T08:00:00.000Z",
+    "updatedAt": "2025-01-12T10:30:00.000Z"
+  },
+  {
+    "id": 2,
+    "title": "Dọn dẹp nhà cửa",
+    "description": "Lau nhà, rửa chén, giặt đồ",
+    "status": "OPEN",
+    "priority": "MEDIUM",
+    "categoryId": 2,
+    "createdAt": "2025-01-11T09:00:00.000Z",
+    "updatedAt": "2025-01-11T09:00:00.000Z"
+  },
+  {
+    "id": 3,
+    "title": "Viết báo cáo tuần",
+    "description": "Tổng hợp tiến độ dự án cho team lead",
+    "status": "OPEN",
+    "priority": "HIGH",
+    "categoryId": 3,
+    "createdAt": "2025-01-12T07:30:00.000Z",
+    "updatedAt": "2025-01-12T07:30:00.000Z"
+  },
+  {
+    "id": 4,
+    "title": "Mua sắm cuối tuần",
+    "description": "Mua rau, thịt, trái cây cho tuần sau",
+    "status": "DONE",
+    "priority": "LOW",
+    "categoryId": 2,
+    "createdAt": "2025-01-08T14:00:00.000Z",
+    "updatedAt": "2025-01-09T16:00:00.000Z"
+  },
+  {
+    "id": 5,
+    "title": "Tập gym",
+    "description": "Ngày tập chân và cardio",
+    "status": "OPEN",
+    "priority": "MEDIUM",
+    "createdAt": "2025-01-13T06:00:00.000Z",
+    "updatedAt": "2025-01-13T06:00:00.000Z"
+  },
+  {
+    "id": 6,
+    "title": "Review pull request",
+    "description": "Review PR #42 của đồng nghiệp trên GitHub",
+    "status": "INPROGRESS",
+    "priority": "HIGH",
+    "categoryId": 3,
+    "createdAt": "2025-01-13T10:00:00.000Z",
+    "updatedAt": "2025-01-13T11:00:00.000Z"
+  },
+  {
+    "id": 7,
+    "title": "Đọc sách Clean Code",
+    "description": "Đọc chương 3 về Functions",
+    "status": "OPEN",
+    "priority": "LOW",
+    "categoryId": 1,
+    "createdAt": "2025-01-14T20:00:00.000Z",
+    "updatedAt": "2025-01-14T20:00:00.000Z"
+  },
+  {
+    "id": 8,
+    "title": "Fix bug trang đăng nhập",
+    "description": "Lỗi không redirect sau khi login thành công",
+    "status": "DONE",
+    "priority": "HIGH",
+    "categoryId": 3,
+    "createdAt": "2025-01-10T09:00:00.000Z",
+    "updatedAt": "2025-01-11T15:00:00.000Z"
+  },
+  {
+    "id": 9,
+    "title": "Chuẩn bị slide thuyết trình",
+    "description": "Slide cho buổi demo sản phẩm thứ 6",
+    "status": "OPEN",
+    "priority": "MEDIUM",
+    "categoryId": 3,
+    "createdAt": "2025-01-15T08:00:00.000Z",
+    "updatedAt": "2025-01-15T08:00:00.000Z"
+  },
+  {
+    "id": 10,
+    "title": "Gọi điện cho bố mẹ",
+    "description": "",
+    "status": "OPEN",
+    "priority": "MEDIUM",
+    "categoryId": 2,
+    "createdAt": "2025-01-15T19:00:00.000Z",
+    "updatedAt": "2025-01-15T19:00:00.000Z"
+  }
+]
