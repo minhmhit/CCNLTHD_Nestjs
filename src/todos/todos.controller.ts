@@ -18,11 +18,7 @@ import { TodosService } from './todos.service';
 
 @Controller('todos')
 export class TodosController {
-  private todosService: TodosService;
-
-  constructor() {
-    this.todosService = new TodosService();
-  }
+  constructor(private todosService: TodosService) {}
 
   @Get()
   findAll(@Query() queryParamsDto: QueryParamsDto) {

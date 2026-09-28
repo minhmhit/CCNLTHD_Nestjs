@@ -3,13 +3,11 @@ import { CreateTodoDto } from './dto/create-todo.dto';
 import { QueryParamsDto } from './dto/query-params.dto';
 import { UpdateTodoDto } from './dto/update-todo.dto';
 import { TodosRepository } from './todos.repository';
+import { Injectable } from '@nestjs/common';
 
+@Injectable()
 export class TodosService {
-  private todosRepository: TodosRepository;
-
-  constructor() {
-    this.todosRepository = new TodosRepository();
-  }
+  constructor(private todosRepository: TodosRepository) {}
 
   findAll(queryParamsDto: QueryParamsDto): Todo[] {
     let todos = this.todosRepository.findAll();
