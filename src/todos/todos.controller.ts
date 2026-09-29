@@ -9,15 +9,12 @@ import {
   Query,
   HttpCode,
   ParseIntPipe,
-  UseFilters,
 } from '@nestjs/common';
 import { CreateTodoDto } from './dto/create-todo.dto';
 import { UpdateTodoDto } from './dto/update-todo.dto';
 import { QueryParamsDto } from './dto/query-params.dto';
 import { TodosService } from './todos.service';
-import { HttpExceptionFilter } from 'src/filters/http-exception.filter';
 
-@UseFilters(HttpExceptionFilter)
 @Controller('todos')
 export class TodosController {
   constructor(private todosService: TodosService) {}
