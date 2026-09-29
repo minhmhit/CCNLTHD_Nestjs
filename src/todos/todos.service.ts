@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { CategoriesService } from 'src/categories/categories.service';
 import { UsersService } from 'src/users/users.service';
+import { TodoNotFoundException } from './exceptions/todo-not-found.exception';
 
 @Injectable()
 export class TodosService {
@@ -34,12 +35,7 @@ export class TodosService {
   findById(id: number) {
     const todo = this.todosRepository.findById(id);
     if (!todo) {
-      throw new NotFoundException({
-        message: `khong tim duoc todo co ID ${id}`,
-        errorCode: 'TODO_NOT_FOUND',
-        field: 'id',
-        statusCode: 404,
-      });
+      throw new TodoNotFoundException(id);
     }
     return todo;
   }
@@ -81,12 +77,7 @@ export class TodosService {
   update(id: number, updateTodoDto: UpdateTodoDto) {
     const updateTodo = this.todosRepository.update(id, updateTodoDto);
     if (!updateTodo) {
-      throw new NotFoundException({
-        message: `khong tim duoc todo co ID ${id}`,
-        errorCode: 'TODO_NOT_FOUND',
-        field: 'id',
-        statusCode: 404,
-      });
+      throw new TodoNotFoundException(id);
     }
     return updateTodo;
   }
@@ -94,12 +85,7 @@ export class TodosService {
   delete(id: number) {
     const deleted = this.todosRepository.delete(id);
     if (!deleted) {
-      throw new NotFoundException({
-        message: `khong tim duoc todo co ID ${id}`,
-        errorCode: 'TODO_NOT_FOUND',
-        field: 'id',
-        statusCode: 404,
-      });
+      throw new TodoNotFoundException(id);
     }
   }
 }
