@@ -3,9 +3,14 @@ import { CreateTodoDto } from './dto/create-todo.dto';
 import { QueryParamsDto } from './dto/query-params.dto';
 import { UpdateTodoDto } from './dto/update-todo.dto';
 import { TodosRepository } from './todos.repository';
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CategoriesService } from 'src/categories/categories.service';
 import { UsersService } from 'src/users/users.service';
+import { TodoNotFoundException } from './exceptions/todo-not-found.exception';
 
 @Injectable()
 export class TodosService {
@@ -30,7 +35,7 @@ export class TodosService {
   findById(id: number) {
     const todo = this.todosRepository.findById(id);
     if (!todo) {
-      throw new Error(`khong tim duoc todo co ID ${id}`);
+      throw new TodoNotFoundException(id);
     }
     return todo;
   }
@@ -38,15 +43,33 @@ export class TodosService {
   create(createTodoDto: CreateTodoDto) {
     const user = this.usersService.findById(createTodoDto.userId);
     if (!user) {
-      throw new Error(`khong tim duoc user co ID ${createTodoDto.userId}`);
+      throw new NotFoundException({
+        message: `khong tim duoc user co ID ${createTodoDto.userId}`,
+        errorCode: 'USER_NOT_FOUND',
+        field: 'userId',
+        statusCode: 404,
+      });
     }
     if (createTodoDto.categoryId) {
       const category = this.categoriesService.findOne(createTodoDto.categoryId);
       if (!category) {
-        throw new Error(
-          `khong tim duoc category co ID ${createTodoDto.categoryId}`,
-        );
+        throw new NotFoundException({
+          message: `khong tim duoc category co ID ${createTodoDto.categoryId}`,
+          errorCode: 'CATEGORY_NOT_FOUND',
+          field: 'categoryId',
+          statusCode: 404,
+        });
       }
+    }
+
+    const existingTodo = this.todosRepository.findByTitle(createTodoDto.title);
+    if (existingTodo) {
+      throw new BadRequestException({
+        message: `Todo voi title ${createTodoDto.title} da ton tai`,
+        errorCode: 'TODO_TITLE_DUPLICATE',
+        field: 'title',
+        statusCode: 400,
+      });
     }
     return this.todosRepository.create(createTodoDto);
   }
@@ -54,7 +77,7 @@ export class TodosService {
   update(id: number, updateTodoDto: UpdateTodoDto) {
     const updateTodo = this.todosRepository.update(id, updateTodoDto);
     if (!updateTodo) {
-      throw new Error(`khong tim duoc todo co ID ${id}`);
+      throw new TodoNotFoundException(id);
     }
     return updateTodo;
   }
@@ -62,7 +85,7 @@ export class TodosService {
   delete(id: number) {
     const deleted = this.todosRepository.delete(id);
     if (!deleted) {
-      throw new Error(`khong tim duoc todo co ID ${id}`);
+      throw new TodoNotFoundException(id);
     }
   }
 }

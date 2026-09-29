@@ -6,7 +6,6 @@ import {
   Body,
   Patch,
   Delete,
-  Headers,
   Query,
   HttpCode,
   ParseIntPipe,
