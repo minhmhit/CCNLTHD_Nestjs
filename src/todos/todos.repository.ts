@@ -36,6 +36,11 @@ export class TodosRepository {
     return todos.find((todo) => todo.id === id);
   }
 
+  findByTitle(title: string) {
+    const todos = this.readFromFile();
+    return todos.find((todo) => todo.title === title);
+  }
+
   create(createTodoDto: CreateTodoDto): Todo {
     const todos = this.readFromFile();
     const newTodo: Todo = {
