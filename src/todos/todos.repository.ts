@@ -17,7 +17,11 @@ export class TodosRepository {
   }
 
   private writeToFile(todos: Todo[]): void {
-    fs.writeFileSync(TODOS_FILE, JSON.stringify(todos, null, 2), 'utf-8');
+    fs.writeFileSync(
+      TODOS_FILE,
+      JSON.stringify(todos, null, 2),
+      'utf-8',
+    );
   }
 
   private getNextId(todos: Todo[]): number {
@@ -41,23 +45,23 @@ export class TodosRepository {
     return todos.find((todo) => todo.title === title);
   }
 
-  create(createTodoDto: CreateTodoDto): Todo {
-    const todos = this.readFromFile();
-    const newTodo: Todo = {
-      id: this.getNextId(todos),
-      title: createTodoDto.title,
-      description: createTodoDto.description ?? '',
-      status: createTodoDto.status ?? TodoStatus.OPEN,
-      priority: createTodoDto.priority ?? TodoPriority.MEDIUM,
-      categoryId: createTodoDto.categoryId,
-      userId: createTodoDto.userId,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    todos.push(newTodo);
-    this.writeToFile(todos);
-    return newTodo;
-  }
+  // create(createTodoDto: CreateTodoDto): Todo {
+  //   const todos = this.readFromFile();
+  //   const newTodo: Todo = {
+  //     id: this.getNextId(todos),
+  //     title: createTodoDto.title,
+  //     description: createTodoDto.description ?? '',
+  //     status: createTodoDto.status ?? TodoStatus.OPEN,
+  //     priority: createTodoDto.priority ?? TodoPriority.MEDIUM,
+  //     categoryId: createTodoDto.categoryId,
+  //     userId: createTodoDto.userId,
+  //     createdAt: new Date(),
+  //     updatedAt: new Date(),
+  //   };
+  //   todos.push(newTodo);
+  //   this.writeToFile(todos);
+  //   return newTodo;
+  // }
 
   update(id: number, updateTodoDto: UpdateTodoDto) {
     const todos = this.readFromFile();

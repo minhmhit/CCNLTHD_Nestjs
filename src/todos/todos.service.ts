@@ -33,7 +33,7 @@ export class TodosService {
       ? { priority: queryParamsDto.priority }
       : {};
 
-    let todos = await this.todosRepository.find({
+    const todos = await this.todosRepository.find({
       where,
       take: limit,
       skip: start,

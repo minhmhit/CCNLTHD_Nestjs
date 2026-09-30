@@ -1,4 +1,10 @@
-import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  Max,
+  Min,
+} from 'class-validator';
 import { TodoPriority } from 'src/todos/enums/todo-priority.enum';
 
 export class QueryParamsDto {
@@ -15,7 +21,7 @@ export class QueryParamsDto {
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   @IsOptional()
-  @IsEnum(TodoPriority as object, {
+  @IsEnum(TodoPriority, {
     message: `priority phai la mot trong ${Object.values(TodoPriority as object).join(', ')}`,
   })
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
