@@ -4,12 +4,7 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "deleteOutDir": true,
-    "assets": [
-      {
-        "include": "todos/todos.json",
-        "outDir": "dist/src"
-      }
-    ],
+    "assets": ["seed/*.json"],
     "watchAssets": true
   }
 }
