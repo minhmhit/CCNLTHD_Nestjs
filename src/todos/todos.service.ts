@@ -55,7 +55,7 @@ export class TodosService {
   }
 
   async create(createTodoDto: CreateTodoDto) {
-    const user = this.usersService.findById(
+    const user = await this.usersService.findById(
       createTodoDto.userId,
     );
     if (!user) {
@@ -67,7 +67,7 @@ export class TodosService {
       });
     }
     if (createTodoDto.categoryId) {
-      const category = this.categoriesService.findOne(
+      const category = await this.categoriesService.findOne(
         createTodoDto.categoryId,
       );
       if (!category) {
@@ -95,6 +95,17 @@ export class TodosService {
   }
 
   async update(id: number, updateTodoDto: UpdateTodoDto) {
+    if (updateTodoDto.categoryId) {
+      const category = await this.categoriesService.findOne(
+        updateTodoDto.categoryId,
+      );
+      if (!category) {
+        throw new NotFoundException(
+          `Khong tim thay category voi id ${updateTodoDto.categoryId}`,
+        );
+      }
+    }
+
     const todo = await this.todosRepository.findOne({
       where: { id },
     });
