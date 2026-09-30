@@ -55,7 +55,7 @@ export class Todo {
     name: 'categoryId',
     referencedColumnName: 'id',
   })
-  category!: Category;
+  category?: Category;
 
   @CreateDateColumn()
   createdAt!: Date;

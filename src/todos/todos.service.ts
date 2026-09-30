@@ -37,6 +37,7 @@ export class TodosService {
       where,
       take: limit,
       skip: start,
+      relations: ['user', 'category'],
     });
 
     return todos;
@@ -45,6 +46,7 @@ export class TodosService {
   async findById(id: number) {
     const todo = await this.todosRepository.findOne({
       where: { id },
+      relations: ['user', 'category'],
     });
     if (!todo) {
       throw new TodoNotFoundException(id);
