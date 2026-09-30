@@ -29,9 +29,9 @@ export class Todo {
   @Column({
     type: 'enum',
     enum: TodoPriority,
-    default: TodoPriority.MEDIUM,
+    nullable: true,
   })
-  priority!: TodoPriority;
+  priority?: TodoPriority;
 
   @Column()
   userId!: number;
