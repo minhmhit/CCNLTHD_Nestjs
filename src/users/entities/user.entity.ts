@@ -19,4 +19,10 @@ export class User {
 
   @Column({ type: 'timestamp', nullable: true })
   lastActivityAt?: Date;
+
+  @Column({ nullable: true })
+  email?: string;
+
+  @Column({ nullable: true })
+  address?: string;
 }
