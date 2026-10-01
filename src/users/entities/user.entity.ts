@@ -16,4 +16,7 @@ export class User {
 
   @OneToMany(() => Todo, (todo) => todo.user)
   todos: Todo[];
+
+  @Column({ type: 'timestamp', nullable: true })
+  lastActivityAt?: Date;
 }
