@@ -6,12 +6,15 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
+@Index(['userId'])
+@Index(['categoryId'])
 @Entity()
 export class Todo {
   @PrimaryGeneratedColumn()
