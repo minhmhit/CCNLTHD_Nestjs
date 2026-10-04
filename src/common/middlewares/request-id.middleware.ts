@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { NextFunction, Request, Response } from 'express';
 
 @Injectable()
-export class RequestMiddleware implements NestMiddleware {
+export class RequestIdMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction) {
     const requestId = randomUUID();
     req['requestId'] = requestId;

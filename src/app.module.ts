@@ -12,7 +12,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Todo } from './todos/entities/todo.entity';
 import { User } from './users/entities/user.entity';
 import { Category } from './categories/entities/category.entity';
-import { RequestMiddleware } from './common/middlewares/request-id.middleware';
+import { RequestIdMiddleware } from './common/middlewares/request-id.middleware';
 
 @Module({
   controllers: [AppController],
@@ -39,6 +39,6 @@ import { RequestMiddleware } from './common/middlewares/request-id.middleware';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(RequestMiddleware).forRoutes('*');
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
   }
 }
