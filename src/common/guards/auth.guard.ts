@@ -18,6 +18,9 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException('Token not found');
     }
 
+    //validate token & get userId
+    request.userId = 1;
+
     return true;
   }
 }

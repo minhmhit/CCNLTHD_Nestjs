@@ -9,11 +9,14 @@ import {
   Query,
   HttpCode,
   ParseIntPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { CreateTodoDto } from './dto/create-todo.dto';
 import { UpdateTodoDto } from './dto/update-todo.dto';
 import { QueryParamsDto } from './dto/query-params.dto';
 import { TodosService } from './todos.service';
+import { TodoOwnershipGuard } from './guards/todo-ownership.guard';
+import { AuthGuard } from 'src/common/guards/auth.guard';
 
 @Controller('todos')
 export class TodosController {
@@ -43,6 +46,7 @@ export class TodosController {
 
   @HttpCode(204)
   @Delete(':id')
+  @UseGuards(AuthGuard, TodoOwnershipGuard)
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.todosService.delete(id);
   }
