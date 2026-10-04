@@ -6,12 +6,15 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
+@Index(['userId'])
+@Index(['categoryId'])
 @Entity()
 export class Todo {
   @PrimaryGeneratedColumn()
@@ -40,7 +43,10 @@ export class Todo {
   @Column()
   userId!: number;
 
-  @ManyToOne(() => User, (user) => user.todos)
+  @ManyToOne(() => User, (user) => user.todos, {
+    onDelete: 'CASCADE',
+    cascade: true,
+  })
   @JoinColumn({
     name: 'userId',
     referencedColumnName: 'id',
@@ -50,7 +56,10 @@ export class Todo {
   @Column({ nullable: true })
   categoryId?: number;
 
-  @ManyToOne(() => Category, { nullable: true })
+  @ManyToOne(() => Category, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   @JoinColumn({
     name: 'categoryId',
     referencedColumnName: 'id',
