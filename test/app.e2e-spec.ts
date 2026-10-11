@@ -361,6 +361,22 @@ describe('Authentication & Authorization (e2e)', () => {
   });
 
   describe('SchedulesModule Validation & Time Constraints', () => {
+    let validationResourceId: number;
+
+    beforeAll(async () => {
+      const roomRes = await request(app.getHttpServer())
+        .post('/resources')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: `Phòng Test Validation ${Date.now()}`,
+          capacity: 20,
+          isActive: true,
+        });
+      validationResourceId = (
+        roomRes.body as ApiSuccessResponse<{ id: number }>
+      ).data.id;
+    });
+
     it('POST /schedules - should reject when endTime is before startTime (400 Bad Request)', async () => {
       const futureStart = new Date(
         Date.now() + 2 * 60 * 60 * 1000,
@@ -374,7 +390,7 @@ describe('Authentication & Authorization (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
           title: 'Họp Khẩn Cấp',
-          resourceId: 1,
+          resourceId: validationResourceId,
           startTime: futureStart,
           endTime: earlierEnd,
         })
@@ -403,7 +419,7 @@ describe('Authentication & Authorization (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
           title: 'Lịch Trong Quá Khứ',
-          resourceId: 1,
+          resourceId: validationResourceId,
           startTime: pastStart,
           endTime: futureEnd,
         })
@@ -432,7 +448,7 @@ describe('Authentication & Authorization (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
           title: 'Họp Hợp Lệ Có Trường Lạ',
-          resourceId: 1,
+          resourceId: validationResourceId,
           startTime: futureStart,
           endTime: futureEnd,
           hackerField: 'injection_attack',
@@ -463,7 +479,7 @@ describe('Authentication & Authorization (e2e)', () => {
         .send({
           title: 'Họp Chiến Lược Q1',
           description: 'Họp chiến lược ban lãnh đạo',
-          resourceId: 1,
+          resourceId: validationResourceId,
           startTime: futureStart,
           endTime: futureEnd,
         })
@@ -493,6 +509,312 @@ describe('Authentication & Authorization (e2e)', () => {
       expect(Array.isArray(body.data.items)).toBe(true);
       expect(body.data.page).toBe(1);
       expect(body.data.limit).toBe(5);
+    });
+  });
+
+  describe('Step 5: Transaction Overlap Prevention & Ownership Guard', () => {
+    let member1Token: string;
+    let member2Token: string;
+    let testResourceId: number;
+    let createdScheduleId: number;
+
+    beforeAll(async () => {
+      // Đăng nhập Member 1 (User A)
+      const res1 = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: 'member1@example.com',
+          password: 'password123',
+        });
+      member1Token = (
+        res1.body as ApiSuccessResponse<LoginResponseBody>
+      ).data.accessToken;
+
+      // Đăng nhập Member 2 (User B)
+      const res2 = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: 'member2@example.com',
+          password: 'password123',
+        });
+      member2Token = (
+        res2.body as ApiSuccessResponse<LoginResponseBody>
+      ).data.accessToken;
+
+      // Admin tạo phòng họp riêng biệt để test độc lập không phụ thuộc dữ liệu seed
+      const roomRes = await request(app.getHttpServer())
+        .post('/resources')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: `Phòng Test Overlap ${Date.now()}`,
+          capacity: 15,
+          isActive: true,
+        })
+        .expect(201);
+      testResourceId = (
+        roomRes.body as ApiSuccessResponse<{ id: number }>
+      ).data.id;
+    });
+
+    it('5.1 Overlap - should reject creating schedule on non-existent resource (404 Not Found)', async () => {
+      const startTime = new Date(
+        Date.now() + 10 * 60 * 60 * 1000,
+      ).toISOString();
+      const endTime = new Date(
+        Date.now() + 11 * 60 * 60 * 1000,
+      ).toISOString();
+
+      const response = await request(app.getHttpServer())
+        .post('/schedules')
+        .set('Authorization', `Bearer ${member1Token}`)
+        .send({
+          title: 'Lịch trên phòng không tồn tại',
+          resourceId: 999999,
+          startTime,
+          endTime,
+        })
+        .expect(404);
+
+      const body = response.body as {
+        success: boolean;
+        message: string;
+      };
+      expect(body.success).toBe(false);
+      expect(body.message).toContain(
+        'Tài nguyên phòng họp không tồn tại',
+      );
+    });
+
+    it('5.1 Overlap - should create schedule from 09:00 to 10:00 successfully', async () => {
+      const startTime = new Date(
+        Date.now() + 10 * 60 * 60 * 1000,
+      ).toISOString();
+      const endTime = new Date(
+        Date.now() + 11 * 60 * 60 * 1000,
+      ).toISOString();
+
+      const response = await request(app.getHttpServer())
+        .post('/schedules')
+        .set('Authorization', `Bearer ${member1Token}`)
+        .send({
+          title: 'Họp Dự Án Sprint A',
+          resourceId: testResourceId,
+          startTime,
+          endTime,
+        })
+        .expect(201);
+
+      const body = response.body as ApiSuccessResponse<{
+        id: number;
+        title: string;
+        resourceId: number;
+        userId: number;
+        status: string;
+      }>;
+      expect(body.success).toBe(true);
+      expect(body.data.title).toBe('Họp Dự Án Sprint A');
+      expect(body.data.status).toBe('CONFIRMED');
+      createdScheduleId = body.data.id;
+    });
+
+    it('5.1 Overlap - should block second user booking overlapping time slot (09:30 - 10:30) with 409 Conflict', async () => {
+      // Khung giờ overlap (chồng lấn từ 10h30 đến 11h30 trong khi lịch trước là 10h00 - 11h00)
+      const overlapStart = new Date(
+        Date.now() + 10.5 * 60 * 60 * 1000,
+      ).toISOString();
+      const overlapEnd = new Date(
+        Date.now() + 11.5 * 60 * 60 * 1000,
+      ).toISOString();
+
+      const response = await request(app.getHttpServer())
+        .post('/schedules')
+        .set('Authorization', `Bearer ${member2Token}`)
+        .send({
+          title: 'Họp Trùng Lấn Ban Thiết Kế',
+          resourceId: testResourceId,
+          startTime: overlapStart,
+          endTime: overlapEnd,
+        })
+        .expect(409);
+
+      const body = response.body as {
+        success: boolean;
+        statusCode: number;
+        message: string;
+      };
+      expect(body.success).toBe(false);
+      expect(body.statusCode).toBe(409);
+      expect(body.message).toBe(
+        'Phòng họp đã được đặt trong khung giờ này. Vui lòng chọn thời gian khác!',
+      );
+    });
+
+    it('5.1 Rollback - should rollback transaction completely when simulated error occurs after insert', async () => {
+      const rollbackStart = new Date(
+        Date.now() + 15 * 60 * 60 * 1000,
+      ).toISOString();
+      const rollbackEnd = new Date(
+        Date.now() + 16 * 60 * 60 * 1000,
+      ).toISOString();
+
+      // Gửi request tới endpoint test-rollback
+      const response = await request(app.getHttpServer())
+        .post('/schedules/test-rollback')
+        .set('Authorization', `Bearer ${member1Token}`)
+        .send({
+          title: 'Lịch Hẹn Cần Rollback',
+          resourceId: testResourceId,
+          startTime: rollbackStart,
+          endTime: rollbackEnd,
+        })
+        .expect(500);
+
+      const errBody = response.body as {
+        success: boolean;
+        message: string;
+      };
+      expect(errBody.success).toBe(false);
+      expect(errBody.message).toContain(
+        'Transaction tự động Rollback',
+      );
+
+      // Xác minh DB không có lịch hẹn rác nào được lưu lại trong khung giờ này
+      const checkRes = await request(app.getHttpServer())
+        .get(
+          `/schedules?resourceId=${testResourceId}&from=${rollbackStart}&to=${rollbackEnd}`,
+        )
+        .set('Authorization', `Bearer ${member1Token}`)
+        .expect(200);
+
+      const checkBody =
+        checkRes.body as ApiSuccessResponse<{
+          items: any[];
+          total: number;
+        }>;
+      expect(checkBody.data.total).toBe(0);
+      expect(checkBody.data.items.length).toBe(0);
+    });
+
+    it('5.2 Ownership - User B should be blocked (403 Forbidden) when updating User A schedule', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/schedules/${createdScheduleId}`)
+        .set('Authorization', `Bearer ${member2Token}`)
+        .send({
+          title: 'User B Cố Tình Chiếm Quyền Sửa',
+        })
+        .expect(403);
+
+      const body = response.body as {
+        success: boolean;
+        statusCode: number;
+        message: string;
+      };
+      expect(body.success).toBe(false);
+      expect(body.statusCode).toBe(403);
+      expect(body.message).toBe(
+        'Bạn không có quyền chỉnh sửa hoặc hủy lịch hẹn của người khác!',
+      );
+    });
+
+    it('5.2 Ownership - User B should be blocked (403 Forbidden) when deleting User A schedule', async () => {
+      const response = await request(app.getHttpServer())
+        .delete(`/schedules/${createdScheduleId}`)
+        .set('Authorization', `Bearer ${member2Token}`)
+        .expect(403);
+
+      const body = response.body as {
+        success: boolean;
+        statusCode: number;
+        message: string;
+      };
+      expect(body.success).toBe(false);
+      expect(body.statusCode).toBe(403);
+      expect(body.message).toBe(
+        'Bạn không có quyền chỉnh sửa hoặc hủy lịch hẹn của người khác!',
+      );
+    });
+
+    it('5.2 Ownership - User A should successfully cancel their own schedule (status changes to CANCELLED)', async () => {
+      const response = await request(app.getHttpServer())
+        .delete(`/schedules/${createdScheduleId}`)
+        .set('Authorization', `Bearer ${member1Token}`)
+        .expect(200);
+
+      const body = response.body as ApiSuccessResponse<{
+        id: number;
+        status: string;
+      }>;
+      expect(body.success).toBe(true);
+      expect(body.data.id).toBe(createdScheduleId);
+      expect(body.data.status).toBe('CANCELLED');
+    });
+
+    it('5.2 Ownership - User B can now book the cancelled time slot (freed slot)', async () => {
+      // Khung giờ lúc trước bị chặn, giờ đã được giải phóng vì User A đã CANCELLED
+      const startTime = new Date(
+        Date.now() + 10 * 60 * 60 * 1000,
+      ).toISOString();
+      const endTime = new Date(
+        Date.now() + 11 * 60 * 60 * 1000,
+      ).toISOString();
+
+      const response = await request(app.getHttpServer())
+        .post('/schedules')
+        .set('Authorization', `Bearer ${member2Token}`)
+        .send({
+          title: 'User B Đặt Lại Sau Khi User A Hủy',
+          resourceId: testResourceId,
+          startTime,
+          endTime,
+        })
+        .expect(201);
+
+      const body = response.body as ApiSuccessResponse<{
+        id: number;
+        title: string;
+        status: string;
+      }>;
+      expect(body.success).toBe(true);
+      expect(body.data.status).toBe('CONFIRMED');
+    });
+
+    it('5.2 Ownership - Admin can cancel any user schedule successfully', async () => {
+      // User B tạo lịch mới
+      const startTime = new Date(
+        Date.now() + 20 * 60 * 60 * 1000,
+      ).toISOString();
+      const endTime = new Date(
+        Date.now() + 21 * 60 * 60 * 1000,
+      ).toISOString();
+
+      const createRes = await request(app.getHttpServer())
+        .post('/schedules')
+        .set('Authorization', `Bearer ${member2Token}`)
+        .send({
+          title: 'Lịch Của User B Sắp Bị Admin Hủy',
+          resourceId: testResourceId,
+          startTime,
+          endTime,
+        })
+        .expect(201);
+
+      const scheduleId = (
+        createRes.body as ApiSuccessResponse<{ id: number }>
+      ).data.id;
+
+      // Admin hủy lịch của User B
+      const deleteRes = await request(app.getHttpServer())
+        .delete(`/schedules/${scheduleId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const deleteBody =
+        deleteRes.body as ApiSuccessResponse<{
+          id: number;
+          status: string;
+        }>;
+      expect(deleteBody.success).toBe(true);
+      expect(deleteBody.data.status).toBe('CANCELLED');
     });
   });
 });

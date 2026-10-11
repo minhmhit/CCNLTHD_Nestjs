@@ -8,12 +8,14 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { SchedulesService } from './schedules.service';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { QueryScheduleDto } from './dto/query-schedule.dto';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { ScheduleOwnershipGuard } from './guards/schedule-owner.guard';
 
 @Controller('schedules')
 export class SchedulesController {
@@ -42,7 +44,19 @@ export class SchedulesController {
     );
   }
 
+  @Post('test-rollback')
+  testRollback(
+    @Body() createScheduleDto: CreateScheduleDto,
+    @CurrentUser('id') userId: number,
+  ) {
+    return this.schedulesService.createWithSimulatedRollback(
+      createScheduleDto,
+      userId,
+    );
+  }
+
   @Patch(':id')
+  @UseGuards(ScheduleOwnershipGuard)
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateScheduleDto: UpdateScheduleDto,
@@ -54,6 +68,7 @@ export class SchedulesController {
   }
 
   @Delete(':id')
+  @UseGuards(ScheduleOwnershipGuard)
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.schedulesService.remove(id);
   }
