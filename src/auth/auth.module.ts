@@ -18,14 +18,12 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const expiresIn =
-          configService.get<string>('JWT_EXPIRES_IN') ??
-          '1d';
+        const expiresIn = configService.get<string>(
+          'JWT_EXPIRES_IN',
+        );
         return {
-          secret: configService.get<string>(
-            'JWT_SECRET',
-            'super_secret_jwt_key_scheduling_app_2026',
-          ),
+          secret:
+            configService.getOrThrow<string>('JWT_SECRET'),
           signOptions: {
             expiresIn: expiresIn as unknown as number,
           },

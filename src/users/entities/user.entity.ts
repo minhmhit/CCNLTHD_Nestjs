@@ -32,6 +32,10 @@ export class User {
   })
   role!: Role;
 
+  @Column({ type: 'text', nullable: true })
+  @Exclude()
+  refreshToken?: string | null;
+
   @CreateDateColumn()
   createdAt!: Date;
 

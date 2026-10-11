@@ -2,6 +2,7 @@ import {
   ConflictException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as bcrypt from 'bcrypt';
@@ -18,11 +19,18 @@ jest.mock('bcrypt', () => ({
 describe('AuthService', () => {
   let service: AuthService;
   let usersService: {
+    findById: jest.Mock;
     findByEmail: jest.Mock;
     create: jest.Mock;
+    updateRefreshToken: jest.Mock;
   };
   let jwtService: {
     signAsync: jest.Mock;
+    verifyAsync: jest.Mock;
+  };
+  let configService: {
+    getOrThrow: jest.Mock;
+    get: jest.Mock;
   };
 
   const mockUser: User = {
@@ -31,6 +39,7 @@ describe('AuthService', () => {
     password: 'hashedpassword',
     fullName: 'Test User',
     role: Role.MEMBER,
+    refreshToken: 'hashed_db_refresh_token',
     createdAt: new Date(),
     updatedAt: new Date(),
     schedules: [],
@@ -40,11 +49,25 @@ describe('AuthService', () => {
     jest.clearAllMocks();
 
     usersService = {
+      findById: jest.fn(),
       findByEmail: jest.fn(),
       create: jest.fn(),
+      updateRefreshToken: jest.fn(),
     };
     jwtService = {
       signAsync: jest.fn(),
+      verifyAsync: jest.fn(),
+    };
+    configService = {
+      getOrThrow: jest.fn((key: string) => {
+        if (key === 'JWT_SECRET') return 'test_jwt_secret';
+        if (key === 'JWT_REFRESH_SECRET')
+          return 'test_refresh_secret';
+        return 'test_value';
+      }),
+      get: jest.fn(
+        (_key: string, defaultVal: string) => defaultVal,
+      ),
     };
 
     const module: TestingModule =
@@ -58,6 +81,10 @@ describe('AuthService', () => {
           {
             provide: JwtService,
             useValue: jwtService,
+          },
+          {
+            provide: ConfigService,
+            useValue: configService,
           },
         ],
       }).compile();
@@ -82,12 +109,15 @@ describe('AuthService', () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it('should hash password and create new user', async () => {
+    it('should hash password, create user, generate both tokens and save hashed refreshToken', async () => {
       usersService.findByEmail.mockResolvedValue(null);
-      (bcrypt.hash as jest.Mock).mockResolvedValue(
-        'hashedpassword',
-      );
+      (bcrypt.hash as jest.Mock)
+        .mockResolvedValueOnce('hashedpassword')
+        .mockResolvedValueOnce('hashed_refresh_token');
       usersService.create.mockResolvedValue(mockUser);
+      jwtService.signAsync
+        .mockResolvedValueOnce('mock_access_token')
+        .mockResolvedValueOnce('mock_refresh_token');
 
       const result = await service.register({
         email: 'test@example.com',
@@ -100,8 +130,25 @@ describe('AuthService', () => {
         10,
       );
       expect(usersService.create).toHaveBeenCalled();
-      expect(result).toHaveProperty('id', 1);
-      expect(result).not.toHaveProperty('password');
+      expect(
+        usersService.updateRefreshToken,
+      ).toHaveBeenCalledWith(
+        mockUser.id,
+        'hashed_refresh_token',
+      );
+      expect(result).toHaveProperty(
+        'accessToken',
+        'mock_access_token',
+      );
+      expect(result).toHaveProperty(
+        'refreshToken',
+        'mock_refresh_token',
+      );
+      expect(result.user).toHaveProperty('id', 1);
+      expect(result.user).not.toHaveProperty('password');
+      expect(result.user).not.toHaveProperty(
+        'refreshToken',
+      );
     });
   });
 
@@ -131,12 +178,15 @@ describe('AuthService', () => {
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    it('should return accessToken and user if credentials are valid', async () => {
+    it('should return accessToken, refreshToken and user, saving hashed refreshToken to DB', async () => {
       usersService.findByEmail.mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      jwtService.signAsync.mockResolvedValue(
-        'mock_jwt_token',
+      (bcrypt.hash as jest.Mock).mockResolvedValue(
+        'new_hashed_refresh',
       );
+      jwtService.signAsync
+        .mockResolvedValueOnce('mock_access_token')
+        .mockResolvedValueOnce('mock_refresh_token');
 
       const result = await service.login({
         email: 'test@example.com',
@@ -145,10 +195,111 @@ describe('AuthService', () => {
 
       expect(result).toHaveProperty(
         'accessToken',
-        'mock_jwt_token',
+        'mock_access_token',
+      );
+      expect(result).toHaveProperty(
+        'refreshToken',
+        'mock_refresh_token',
+      );
+      expect(
+        usersService.updateRefreshToken,
+      ).toHaveBeenCalledWith(
+        mockUser.id,
+        'new_hashed_refresh',
       );
       expect(result.user).toHaveProperty('id', 1);
       expect(result.user).not.toHaveProperty('password');
+      expect(result.user).not.toHaveProperty(
+        'refreshToken',
+      );
+    });
+  });
+
+  describe('refreshTokens', () => {
+    it('should throw UnauthorizedException if refresh token is invalid', async () => {
+      jwtService.verifyAsync.mockRejectedValue(
+        new Error('Invalid token'),
+      );
+
+      await expect(
+        service.refreshTokens('invalid_token'),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should throw UnauthorizedException if user does not exist or has revoked refreshToken', async () => {
+      jwtService.verifyAsync.mockResolvedValue({ sub: 1 });
+      usersService.findById.mockResolvedValue({
+        ...mockUser,
+        refreshToken: null,
+      });
+
+      await expect(
+        service.refreshTokens(
+          'valid_jwt_but_revoked_in_db',
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should throw UnauthorizedException if refreshToken does not match DB hash', async () => {
+      jwtService.verifyAsync.mockResolvedValue({ sub: 1 });
+      usersService.findById.mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(
+        false,
+      );
+
+      await expect(
+        service.refreshTokens('tampered_refresh_token'),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should rotate tokens and update DB when refresh token is valid', async () => {
+      jwtService.verifyAsync.mockResolvedValue({ sub: 1 });
+      usersService.findById.mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      (bcrypt.hash as jest.Mock).mockResolvedValue(
+        'rotated_hashed_refresh',
+      );
+      jwtService.signAsync
+        .mockResolvedValueOnce('new_access_token')
+        .mockResolvedValueOnce('new_refresh_token');
+
+      const result = await service.refreshTokens(
+        'valid_refresh_token',
+      );
+
+      expect(result).toHaveProperty(
+        'accessToken',
+        'new_access_token',
+      );
+      expect(result).toHaveProperty(
+        'refreshToken',
+        'new_refresh_token',
+      );
+      expect(
+        usersService.updateRefreshToken,
+      ).toHaveBeenCalledWith(
+        mockUser.id,
+        'rotated_hashed_refresh',
+      );
+      expect(result.user).toHaveProperty('id', 1);
+    });
+  });
+
+  describe('logout', () => {
+    it('should remove refreshToken from database (revoke/blacklist token)', async () => {
+      usersService.updateRefreshToken.mockResolvedValue(
+        undefined,
+      );
+
+      const result = await service.logout(1);
+
+      expect(
+        usersService.updateRefreshToken,
+      ).toHaveBeenCalledWith(1, null);
+      expect(result).toHaveProperty(
+        'message',
+        'Đăng xuất thành công!',
+      );
     });
   });
 });

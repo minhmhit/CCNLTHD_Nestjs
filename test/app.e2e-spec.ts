@@ -9,18 +9,26 @@ import { AppModule } from './../src/app.module';
 
 interface LoginResponseBody {
   accessToken: string;
+  refreshToken: string;
   user: {
     id: number;
     email: string;
     role: string;
     password?: string;
+    refreshToken?: string;
   };
 }
 
 interface RegisterResponseBody {
-  id: number;
-  email: string;
-  password?: string;
+  accessToken: string;
+  refreshToken: string;
+  user: {
+    id: number;
+    email: string;
+    role: string;
+    password?: string;
+    refreshToken?: string;
+  };
 }
 
 interface ProfileResponseBody {
@@ -33,6 +41,7 @@ describe('Authentication & Authorization (e2e)', () => {
   let app: INestApplication<App>;
   let adminToken: string;
   let memberToken: string;
+  let memberRefreshToken: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule =
@@ -73,7 +82,7 @@ describe('Authentication & Authorization (e2e)', () => {
         .expect(401);
     });
 
-    it('POST /auth/login - should succeed for admin and return JWT token', async () => {
+    it('POST /auth/login - should succeed for admin and return both accessToken & refreshToken', async () => {
       const response = await request(app.getHttpServer())
         .post('/auth/login')
         .send({
@@ -84,14 +93,16 @@ describe('Authentication & Authorization (e2e)', () => {
 
       const body = response.body as LoginResponseBody;
       expect(body).toHaveProperty('accessToken');
+      expect(body).toHaveProperty('refreshToken');
       expect(body).toHaveProperty('user');
       expect(body.user.role).toBe('ADMIN');
       expect(body.user.password).toBeUndefined();
+      expect(body.user.refreshToken).toBeUndefined();
 
       adminToken = body.accessToken;
     });
 
-    it('POST /auth/login - should succeed for member and return JWT token', async () => {
+    it('POST /auth/login - should succeed for member and return accessToken & refreshToken', async () => {
       const response = await request(app.getHttpServer())
         .post('/auth/login')
         .send({
@@ -102,13 +113,42 @@ describe('Authentication & Authorization (e2e)', () => {
 
       const body = response.body as LoginResponseBody;
       expect(body).toHaveProperty('accessToken');
+      expect(body).toHaveProperty('refreshToken');
       expect(body).toHaveProperty('user');
       expect(body.user.role).toBe('MEMBER');
 
       memberToken = body.accessToken;
+      memberRefreshToken = body.refreshToken;
     });
 
-    it('POST /auth/register - should create new user', async () => {
+    it('POST /auth/refresh - should issue new tokens with valid refreshToken', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({
+          refreshToken: memberRefreshToken,
+        })
+        .expect(200);
+
+      const body = response.body as LoginResponseBody;
+      expect(body).toHaveProperty('accessToken');
+      expect(body).toHaveProperty('refreshToken');
+      expect(body.user.email).toBe('member1@example.com');
+
+      // Cập nhật lại token mới sau khi rotate
+      memberToken = body.accessToken;
+      memberRefreshToken = body.refreshToken;
+    });
+
+    it('POST /auth/refresh - should reject invalid refreshToken (401)', () => {
+      return request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({
+          refreshToken: 'invalid_or_tampered_token',
+        })
+        .expect(401);
+    });
+
+    it('POST /auth/register - should create new user and return full tokens', async () => {
       const uniqueEmail = `newuser_${Date.now()}@example.com`;
       const response = await request(app.getHttpServer())
         .post('/auth/register')
@@ -120,9 +160,12 @@ describe('Authentication & Authorization (e2e)', () => {
         .expect(201);
 
       const body = response.body as RegisterResponseBody;
-      expect(body).toHaveProperty('id');
-      expect(body.email).toBe(uniqueEmail);
-      expect(body.password).toBeUndefined();
+      expect(body).toHaveProperty('accessToken');
+      expect(body).toHaveProperty('refreshToken');
+      expect(body).toHaveProperty('user');
+      expect(body.user.email).toBe(uniqueEmail);
+      expect(body.user.password).toBeUndefined();
+      expect(body.user.refreshToken).toBeUndefined();
     });
 
     it('POST /auth/register - should reject duplicate email (409 Conflict)', () => {
@@ -137,7 +180,7 @@ describe('Authentication & Authorization (e2e)', () => {
     });
   });
 
-  describe('JwtAuthGuard & RolesGuard', () => {
+  describe('JwtAuthGuard, RolesGuard & Logout (Blacklist/Revocation)', () => {
     it('GET /auth/profile - should block unauthenticated request (401 Unauthorized)', () => {
       return request(app.getHttpServer())
         .get('/auth/profile')
@@ -175,6 +218,22 @@ describe('Authentication & Authorization (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200)
         .expect('Xin chào Admin!');
+    });
+
+    it('POST /auth/logout - should successfully revoke refreshToken in DB', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200)
+        .expect({ message: 'Đăng xuất thành công!' });
+
+      // Sau khi logout, gửi refreshToken cũ phải bị từ chối 401
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({
+          refreshToken: memberRefreshToken,
+        })
+        .expect(401);
     });
   });
 });
