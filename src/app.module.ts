@@ -4,14 +4,21 @@ import {
   Module,
   NestModule,
 } from '@nestjs/common';
-import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import {
+  APP_FILTER,
+  APP_GUARD,
+  APP_INTERCEPTOR,
+} from '@nestjs/core';
 import { AppController } from './app.controller';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RequestIdMiddleware } from './common/middlewares/request-id.middleware';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { RolesGuard } from './common/guards/roles.guard';
 
 // Modules
+import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { ResourcesModule } from './resources/resources.module';
 import { SchedulesModule } from './schedules/schedules.module';
@@ -25,6 +32,14 @@ import { Schedule } from './schedules/entities/schedule.entity';
   controllers: [AppController],
   providers: [
     {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
+    {
       provide: APP_FILTER,
       useClass: HttpExceptionFilter,
     },
@@ -34,6 +49,7 @@ import { Schedule } from './schedules/entities/schedule.entity';
     },
   ],
   imports: [
+    AuthModule,
     UsersModule,
     ResourcesModule,
     SchedulesModule,
