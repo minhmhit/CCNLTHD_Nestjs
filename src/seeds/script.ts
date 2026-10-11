@@ -4,7 +4,7 @@ import { AppModule } from 'src/app.module';
 import { Category } from 'src/categories/entities/category.entity';
 import { Todo } from 'src/todos/entities/todo.entity';
 import { User } from 'src/users/entities/user.entity';
-import { readFromFile } from 'src/utils/file';
+import { readFromFile } from './utils/file';
 import { Repository } from 'typeorm';
 
 async function seed() {
