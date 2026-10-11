@@ -130,7 +130,9 @@ describe('AuthService', () => {
         10,
       );
       expect(usersService.create).toHaveBeenCalled();
-      expect(usersService.updateRefreshToken).toHaveBeenCalledWith(
+      expect(
+        usersService.updateRefreshToken,
+      ).toHaveBeenCalledWith(
         mockUser.id,
         'hashed_refresh_token',
       );
