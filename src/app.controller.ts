@@ -4,6 +4,6 @@ import { Controller, Get } from '@nestjs/common';
 export class AppController {
   @Get()
   greeting(): string {
-    return 'Hello from minhmh';
+    return 'Scheduling API is running!';
   }
 }

@@ -19,11 +19,9 @@ export class QueryParamsDto {
   @Max(100)
   limit?: number = 10;
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   @IsOptional()
   @IsEnum(TodoPriority, {
     message: `priority phai la mot trong ${Object.values(TodoPriority as object).join(', ')}`,
   })
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   priority?: TodoPriority;
 }

@@ -18,7 +18,8 @@ export class CategoriesService {
     });
   }
 
-  create(createCategoryDto: CreateCategoryDto) {
+  create(_createCategoryDto: CreateCategoryDto) {
+    void _createCategoryDto;
     return 'This action adds a new category';
   }
 
@@ -26,7 +27,11 @@ export class CategoriesService {
     return `This action returns all categories`;
   }
 
-  update(id: number, updateCategoryDto: UpdateCategoryDto) {
+  update(
+    id: number,
+    _updateCategoryDto: UpdateCategoryDto,
+  ) {
+    void _updateCategoryDto;
     return `This action updates a #${id} category`;
   }
 
