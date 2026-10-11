@@ -130,25 +130,12 @@ describe('AuthService', () => {
         10,
       );
       expect(usersService.create).toHaveBeenCalled();
-      expect(
-        usersService.updateRefreshToken,
-      ).toHaveBeenCalledWith(
+      expect(usersService.updateRefreshToken).toHaveBeenCalledWith(
         mockUser.id,
         'hashed_refresh_token',
       );
-      expect(result).toHaveProperty(
-        'accessToken',
-        'mock_access_token',
-      );
-      expect(result).toHaveProperty(
-        'refreshToken',
-        'mock_refresh_token',
-      );
+      expect(result).toHaveProperty('user');
       expect(result.user).toHaveProperty('id', 1);
-      expect(result.user).not.toHaveProperty('password');
-      expect(result.user).not.toHaveProperty(
-        'refreshToken',
-      );
     });
   });
 

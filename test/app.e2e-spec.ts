@@ -7,6 +7,13 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 
+interface ApiSuccessResponse<T> {
+  success: boolean;
+  statusCode: number;
+  data: T;
+  timestamp: string;
+}
+
 interface LoginResponseBody {
   accessToken: string;
   refreshToken: string;
@@ -20,8 +27,6 @@ interface LoginResponseBody {
 }
 
 interface RegisterResponseBody {
-  accessToken: string;
-  refreshToken: string;
   user: {
     id: number;
     email: string;
@@ -65,11 +70,17 @@ describe('Authentication & Authorization (e2e)', () => {
   });
 
   describe('Public Endpoints & Authentication', () => {
-    it('GET / - should allow unauthenticated access (200 OK)', () => {
-      return request(app.getHttpServer())
+    it('GET / - should allow unauthenticated access (200 OK wrapped in success format)', async () => {
+      const response = await request(app.getHttpServer())
         .get('/')
-        .expect(200)
-        .expect('Scheduling API is running!');
+        .expect(200);
+
+      const body =
+        response.body as ApiSuccessResponse<string>;
+      expect(body.success).toBe(true);
+      expect(body.statusCode).toBe(200);
+      expect(body.data).toBe('Scheduling API is running!');
+      expect(body).toHaveProperty('timestamp');
     });
 
     it('POST /auth/login - should fail with wrong credentials (401)', () => {
@@ -91,15 +102,18 @@ describe('Authentication & Authorization (e2e)', () => {
         })
         .expect(200);
 
-      const body = response.body as LoginResponseBody;
-      expect(body).toHaveProperty('accessToken');
-      expect(body).toHaveProperty('refreshToken');
-      expect(body).toHaveProperty('user');
-      expect(body.user.role).toBe('ADMIN');
-      expect(body.user.password).toBeUndefined();
-      expect(body.user.refreshToken).toBeUndefined();
+      const body =
+        response.body as ApiSuccessResponse<LoginResponseBody>;
+      expect(body.success).toBe(true);
+      expect(body.statusCode).toBe(200);
+      expect(body.data).toHaveProperty('accessToken');
+      expect(body.data).toHaveProperty('refreshToken');
+      expect(body.data).toHaveProperty('user');
+      expect(body.data.user.role).toBe('ADMIN');
+      expect(body.data.user.password).toBeUndefined();
+      expect(body.data.user.refreshToken).toBeUndefined();
 
-      adminToken = body.accessToken;
+      adminToken = body.data.accessToken;
     });
 
     it('POST /auth/login - should succeed for member and return accessToken & refreshToken', async () => {
@@ -111,14 +125,16 @@ describe('Authentication & Authorization (e2e)', () => {
         })
         .expect(200);
 
-      const body = response.body as LoginResponseBody;
-      expect(body).toHaveProperty('accessToken');
-      expect(body).toHaveProperty('refreshToken');
-      expect(body).toHaveProperty('user');
-      expect(body.user.role).toBe('MEMBER');
+      const body =
+        response.body as ApiSuccessResponse<LoginResponseBody>;
+      expect(body.success).toBe(true);
+      expect(body.data).toHaveProperty('accessToken');
+      expect(body.data).toHaveProperty('refreshToken');
+      expect(body.data).toHaveProperty('user');
+      expect(body.data.user.role).toBe('MEMBER');
 
-      memberToken = body.accessToken;
-      memberRefreshToken = body.refreshToken;
+      memberToken = body.data.accessToken;
+      memberRefreshToken = body.data.refreshToken;
     });
 
     it('POST /auth/refresh - should issue new tokens with valid refreshToken', async () => {
@@ -129,14 +145,18 @@ describe('Authentication & Authorization (e2e)', () => {
         })
         .expect(200);
 
-      const body = response.body as LoginResponseBody;
-      expect(body).toHaveProperty('accessToken');
-      expect(body).toHaveProperty('refreshToken');
-      expect(body.user.email).toBe('member1@example.com');
+      const body =
+        response.body as ApiSuccessResponse<LoginResponseBody>;
+      expect(body.success).toBe(true);
+      expect(body.data).toHaveProperty('accessToken');
+      expect(body.data).toHaveProperty('refreshToken');
+      expect(body.data.user.email).toBe(
+        'member1@example.com',
+      );
 
       // Cập nhật lại token mới sau khi rotate
-      memberToken = body.accessToken;
-      memberRefreshToken = body.refreshToken;
+      memberToken = body.data.accessToken;
+      memberRefreshToken = body.data.refreshToken;
     });
 
     it('POST /auth/refresh - should reject invalid refreshToken (401)', () => {
@@ -148,7 +168,7 @@ describe('Authentication & Authorization (e2e)', () => {
         .expect(401);
     });
 
-    it('POST /auth/register - should create new user and return full tokens', async () => {
+    it('POST /auth/register - should create new user and return wrapped response', async () => {
       const uniqueEmail = `newuser_${Date.now()}@example.com`;
       const response = await request(app.getHttpServer())
         .post('/auth/register')
@@ -159,13 +179,13 @@ describe('Authentication & Authorization (e2e)', () => {
         })
         .expect(201);
 
-      const body = response.body as RegisterResponseBody;
-      expect(body).toHaveProperty('accessToken');
-      expect(body).toHaveProperty('refreshToken');
-      expect(body).toHaveProperty('user');
-      expect(body.user.email).toBe(uniqueEmail);
-      expect(body.user.password).toBeUndefined();
-      expect(body.user.refreshToken).toBeUndefined();
+      const body =
+        response.body as ApiSuccessResponse<RegisterResponseBody>;
+      expect(body.success).toBe(true);
+      expect(body.data).toHaveProperty('user');
+      expect(body.data.user.email).toBe(uniqueEmail);
+      expect(body.data.user.password).toBeUndefined();
+      expect(body.data.user.refreshToken).toBeUndefined();
     });
 
     it('POST /auth/register - should reject duplicate email (409 Conflict)', () => {
@@ -193,10 +213,12 @@ describe('Authentication & Authorization (e2e)', () => {
         .set('Authorization', `Bearer ${memberToken}`)
         .expect(200);
 
-      const body = response.body as ProfileResponseBody;
-      expect(body).toHaveProperty('id');
-      expect(body.email).toBe('member1@example.com');
-      expect(body.role).toBe('MEMBER');
+      const body =
+        response.body as ApiSuccessResponse<ProfileResponseBody>;
+      expect(body.success).toBe(true);
+      expect(body.data).toHaveProperty('id');
+      expect(body.data.email).toBe('member1@example.com');
+      expect(body.data.role).toBe('MEMBER');
     });
 
     it('GET /admin-only - should block unauthenticated request (401 Unauthorized)', () => {
@@ -212,20 +234,31 @@ describe('Authentication & Authorization (e2e)', () => {
         .expect(403);
     });
 
-    it('GET /admin-only - should allow ADMIN with 200 OK', () => {
-      return request(app.getHttpServer())
+    it('GET /admin-only - should allow ADMIN with 200 OK wrapped in success format', async () => {
+      const response = await request(app.getHttpServer())
         .get('/admin-only')
         .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200)
-        .expect('Xin chào Admin!');
+        .expect(200);
+
+      const body =
+        response.body as ApiSuccessResponse<string>;
+      expect(body.success).toBe(true);
+      expect(body.data).toBe('Xin chào Admin!');
     });
 
     it('POST /auth/logout - should successfully revoke refreshToken in DB', async () => {
-      await request(app.getHttpServer())
+      const response = await request(app.getHttpServer())
         .post('/auth/logout')
         .set('Authorization', `Bearer ${memberToken}`)
-        .expect(200)
-        .expect({ message: 'Đăng xuất thành công!' });
+        .expect(200);
+
+      const body = response.body as ApiSuccessResponse<{
+        message: string;
+      }>;
+      expect(body.success).toBe(true);
+      expect(body.data.message).toBe(
+        'Đăng xuất thành công!',
+      );
 
       // Sau khi logout, gửi refreshToken cũ phải bị từ chối 401
       await request(app.getHttpServer())
