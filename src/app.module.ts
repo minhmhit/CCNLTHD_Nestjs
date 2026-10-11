@@ -4,35 +4,65 @@ import {
   Module,
   NestModule,
 } from '@nestjs/common';
-import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import {
+  APP_FILTER,
+  APP_GUARD,
+  APP_INTERCEPTOR,
+} from '@nestjs/core';
 import { AppController } from './app.controller';
-import { TodosModule } from './todos/todos.module';
-import { UsersModule } from './users/users.module';
-import { CategoriesModule } from './categories/categories.module';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Todo } from './todos/entities/todo.entity';
-import { User } from './users/entities/user.entity';
-import { Category } from './categories/entities/category.entity';
 import { RequestIdMiddleware } from './common/middlewares/request-id.middleware';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { RolesGuard } from './common/guards/roles.guard';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+
+// Modules
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
+import { ResourcesModule } from './resources/resources.module';
+import { SchedulesModule } from './schedules/schedules.module';
+
+// Entities
+import { User } from './users/entities/user.entity';
+import { Resource } from './resources/entities/resource.entity';
+import { Schedule } from './schedules/entities/schedule.entity';
 
 @Module({
   controllers: [AppController],
   providers: [
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
     {
       provide: APP_FILTER,
       useClass: HttpExceptionFilter,
     },
     {
       provide: APP_INTERCEPTOR,
+      useClass: LoggingInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
       useClass: ClassSerializerInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TransformInterceptor,
     },
   ],
   imports: [
-    TodosModule,
+    AuthModule,
     UsersModule,
-    CategoriesModule,
+    ResourcesModule,
+    SchedulesModule,
     ConfigModule.forRoot({
       isGlobal: true,
     }),
@@ -43,9 +73,8 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
       username: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
-      entities: [Todo, User, Category],
-      // synchronize: process.env.NODE_ENV !== 'production',
-      // logging: true,
+      entities: [User, Resource, Schedule],
+      synchronize: false,
     }),
   ],
 })

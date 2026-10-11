@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin123
-      POSTGRES_DB: todos_db
+      POSTGRES_DB: schedule_app
       TZ: Asia/Ho_Chi_Minh
     ports:
       - '5432:5432'
