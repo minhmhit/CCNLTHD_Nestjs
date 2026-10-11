@@ -20,12 +20,12 @@ export class CreateTodoDto {
   description?: string;
 
   @IsOptional()
-  @IsEnum(TodoStatus as object, {
+  @IsEnum(TodoStatus, {
     message: `status phai la 1 trong: ${Object.values(TodoStatus as object).join(',')}`,
   })
   status?: TodoStatus;
   @IsOptional()
-  @IsEnum(TodoPriority as object, {
+  @IsEnum(TodoPriority, {
     message: `priority phai la 1 trong: ${Object.values(TodoPriority as object).join(',')}`,
   })
   priority?: TodoPriority;
