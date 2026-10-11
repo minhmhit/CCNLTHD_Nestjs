@@ -1,37 +1,43 @@
-import { Exclude, Expose } from 'class-transformer';
-import { Todo } from 'src/todos/entities/todo.entity';
+import { Exclude } from 'class-transformer';
 import {
   Column,
+  CreateDateColumn,
   Entity,
   OneToMany,
   PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
+import { Role } from '../enums/role.enum';
+import { Schedule } from 'src/schedules/entities/schedule.entity';
 
-export const GROUP_USER_BASIC = 'group_user_basic';
-export const GROUP_USER_DETAIL = 'group_user_detail';
-
-@Entity()
+@Entity('users')
 export class User {
   @PrimaryGeneratedColumn()
-  @Expose({ groups: [GROUP_USER_BASIC, GROUP_USER_DETAIL] })
   id!: number;
 
-  @Column()
-  @Expose({ groups: [GROUP_USER_BASIC, GROUP_USER_DETAIL] })
-  name!: string;
+  @Column({ unique: true, nullable: false })
+  email!: string;
 
-  @OneToMany(() => Todo, (todo) => todo.user)
-  todos: Todo[];
-
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ nullable: false })
   @Exclude()
-  lastActivityAt?: Date;
+  password!: string;
 
-  @Column({ nullable: true })
-  @Expose({ groups: [GROUP_USER_DETAIL] })
-  email?: string;
+  @Column({ nullable: false })
+  fullName!: string;
 
-  @Expose({ groups: [] })
-  @Column({ nullable: true })
-  address?: string;
+  @Column({
+    type: 'enum',
+    enum: Role,
+    default: Role.MEMBER,
+  })
+  role!: Role;
+
+  @CreateDateColumn()
+  createdAt!: Date;
+
+  @UpdateDateColumn()
+  updatedAt!: Date;
+
+  @OneToMany(() => Schedule, (schedule) => schedule.user)
+  schedules: Schedule[];
 }
