@@ -817,4 +817,116 @@ describe('Authentication & Authorization (e2e)', () => {
       expect(deleteBody.data.status).toBe('CANCELLED');
     });
   });
+
+  describe('Step 6: Cross-Cutting Standards (Logging, Interceptor & Filter)', () => {
+    it('6.1 RequestId - should attach X-Request-Id header to every response', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/')
+        .expect(200);
+
+      expect(response.headers).toHaveProperty(
+        'x-request-id',
+      );
+      expect(typeof response.headers['x-request-id']).toBe(
+        'string',
+      );
+      expect(
+        response.headers['x-request-id'].length,
+      ).toBeGreaterThan(0);
+    });
+
+    it('6.2 Filter - 404 Not Found should have standardized error format with requestId and errorCode', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/resources/9999999')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(404);
+
+      expect(response.headers).toHaveProperty(
+        'x-request-id',
+      );
+      const body = response.body as {
+        success: boolean;
+        statusCode: number;
+        errorCode: string;
+        message: string;
+        requestId: string;
+        timestamp: string;
+        path: string;
+      };
+      expect(body.success).toBe(false);
+      expect(body.statusCode).toBe(404);
+      expect(body.errorCode).toBe('NOT_FOUND');
+      expect(body.requestId).toBe(
+        response.headers['x-request-id'],
+      );
+      expect(body).toHaveProperty('timestamp');
+      expect(body.path).toBe('/resources/9999999');
+    });
+
+    it('6.2 Filter - 401 Unauthorized should have standardized error format', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/auth/profile')
+        .expect(401);
+
+      expect(response.headers).toHaveProperty(
+        'x-request-id',
+      );
+      const body = response.body as {
+        success: boolean;
+        statusCode: number;
+        errorCode: string;
+        requestId: string;
+      };
+      expect(body.success).toBe(false);
+      expect(body.statusCode).toBe(401);
+      expect(body.errorCode).toBe('UNAUTHORIZED');
+      expect(body.requestId).toBe(
+        response.headers['x-request-id'],
+      );
+    });
+
+    it('6.2 Filter - 400 Validation Error should have standardized error format', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          email: 'not-an-email',
+          password: 'short',
+        })
+        .expect(400);
+
+      expect(response.headers).toHaveProperty(
+        'x-request-id',
+      );
+      const body = response.body as {
+        success: boolean;
+        statusCode: number;
+        errorCode: string;
+        message: string | string[];
+        requestId: string;
+      };
+      expect(body.success).toBe(false);
+      expect(body.statusCode).toBe(400);
+      expect(body.errorCode).toBe('BAD_REQUEST');
+      expect(body.requestId).toBe(
+        response.headers['x-request-id'],
+      );
+    });
+
+    it('6.2 Transform - Success response should be strictly wrapped in { success, statusCode, data, timestamp }', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/')
+        .expect(200);
+
+      const body = response.body as {
+        success: boolean;
+        statusCode: number;
+        data: unknown;
+        timestamp: string;
+      };
+      expect(body.success).toBe(true);
+      expect(body.statusCode).toBe(200);
+      expect(body.data).toBe('Scheduling API is running!');
+      expect(body).toHaveProperty('timestamp');
+    });
+  });
 });
