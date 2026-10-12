@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   InternalServerErrorException,
   NotFoundException,
@@ -258,6 +259,76 @@ describe('SchedulesService', () => {
           status: ScheduleStatus.CANCELLED,
         }),
       );
+    });
+  });
+
+  describe('updateStatus & validateStatusTransition', () => {
+    it('should transition from PENDING to CONFIRMED', async () => {
+      const mockSchedule = {
+        id: 1,
+        status: ScheduleStatus.PENDING,
+      } as Schedule;
+      schedulesRepository.findOne?.mockResolvedValue(
+        mockSchedule,
+      );
+      schedulesRepository.save?.mockImplementation(
+        (entity: Schedule) => Promise.resolve(entity),
+      );
+
+      const result = await service.updateStatus(1, {
+        status: ScheduleStatus.CONFIRMED,
+      });
+      expect(result.status).toBe(ScheduleStatus.CONFIRMED);
+    });
+
+    it('should transition from CONFIRMED to CANCELLED', async () => {
+      const mockSchedule = {
+        id: 2,
+        status: ScheduleStatus.CONFIRMED,
+      } as Schedule;
+      schedulesRepository.findOne?.mockResolvedValue(
+        mockSchedule,
+      );
+      schedulesRepository.save?.mockImplementation(
+        (entity: Schedule) => Promise.resolve(entity),
+      );
+
+      const result = await service.updateStatus(2, {
+        status: ScheduleStatus.CANCELLED,
+      });
+      expect(result.status).toBe(ScheduleStatus.CANCELLED);
+    });
+
+    it('should reject reversing from CONFIRMED to PENDING', async () => {
+      const mockSchedule = {
+        id: 3,
+        status: ScheduleStatus.CONFIRMED,
+      } as Schedule;
+      schedulesRepository.findOne?.mockResolvedValue(
+        mockSchedule,
+      );
+
+      await expect(
+        service.updateStatus(3, {
+          status: ScheduleStatus.PENDING,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject changing status when already CANCELLED', async () => {
+      const mockSchedule = {
+        id: 4,
+        status: ScheduleStatus.CANCELLED,
+      } as Schedule;
+      schedulesRepository.findOne?.mockResolvedValue(
+        mockSchedule,
+      );
+
+      await expect(
+        service.updateStatus(4, {
+          status: ScheduleStatus.CONFIRMED,
+        }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

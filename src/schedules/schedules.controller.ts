@@ -13,6 +13,7 @@ import {
 import { SchedulesService } from './schedules.service';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
+import { UpdateScheduleStatusDto } from './dto/update-schedule-status.dto';
 import { QueryScheduleDto } from './dto/query-schedule.dto';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { ScheduleOwnershipGuard } from './guards/schedule-owner.guard';
@@ -64,6 +65,19 @@ export class SchedulesController {
     return this.schedulesService.update(
       id,
       updateScheduleDto,
+    );
+  }
+
+  @Patch(':id/status')
+  @UseGuards(ScheduleOwnershipGuard)
+  updateStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body()
+    updateScheduleStatusDto: UpdateScheduleStatusDto,
+  ) {
+    return this.schedulesService.updateStatus(
+      id,
+      updateScheduleStatusDto,
     );
   }
 
