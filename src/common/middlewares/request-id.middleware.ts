@@ -9,9 +9,9 @@ export class RequestIdMiddleware implements NestMiddleware {
     req['requestId'] = requestId;
     res.setHeader('X-Request-Id', requestId);
 
-    console.log(
-      `[${requestId}] ${req.method} ${req.originalUrl}`,
-    );
+    // console.log(
+    //   `[${requestId}] ${req.method} ${req.originalUrl}`,
+    // );
     next();
   }
 }

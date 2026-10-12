@@ -24,13 +24,15 @@ export interface RegisterResponse {
   user: User;
 }
 
+
+
 @Injectable()
 export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   private sanitizeUser(
     user: User,
@@ -128,16 +130,14 @@ export class AuthService {
     const jwtSecret =
       this.configService.getOrThrow<string>('JWT_SECRET');
     const jwtExpiresIn = this.configService.get<string>(
-      'JWT_EXPIRES_IN',
-      '1d',
+      'JWT_EXPIRES_IN'
     );
     const refreshSecret =
       this.configService.getOrThrow<string>(
-        'JWT_REFRESH_SECRET',
+        'JWT_REFRESH_SECRET'
       );
     const refreshExpiresIn = this.configService.get<string>(
-      'JWT_REFRESH_EXPIRES_IN',
-      '7d',
+      'JWT_REFRESH_EXPIRES_IN'
     );
 
     const [accessToken, refreshToken] = await Promise.all([
@@ -162,7 +162,7 @@ export class AuthService {
 
   async refreshTokens(
     refreshToken: string,
-  ): Promise<AuthResponse> {
+  ): Promise<AuthTokens> {
     const refreshSecret =
       this.configService.getOrThrow<string>(
         'JWT_REFRESH_SECRET',
@@ -207,8 +207,7 @@ export class AuthService {
     );
 
     return {
-      ...tokens,
-      user: this.sanitizeUser(user),
+      ...tokens
     };
   }
 
