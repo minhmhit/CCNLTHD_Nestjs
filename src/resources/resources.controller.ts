@@ -7,10 +7,12 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ResourcesService } from './resources.service';
 import { CreateResourceDto } from './dto/create-resource.dto';
 import { UpdateResourceDto } from './dto/update-resource.dto';
+import { QueryResourceDto } from './dto/query-resource.dto';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/users/enums/role.enum';
 
@@ -21,8 +23,8 @@ export class ResourcesController {
   ) {}
 
   @Get()
-  findAll() {
-    return this.resourcesService.findAll();
+  findAll(@Query() query: QueryResourceDto) {
+    return this.resourcesService.findAll(query);
   }
 
   @Get(':id')
