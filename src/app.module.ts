@@ -26,6 +26,7 @@ import { ResourcesModule } from './resources/resources.module';
 import { SchedulesModule } from './schedules/schedules.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { HealthModule } from './health/health.module';
 
 // Entities
 import { User } from './users/entities/user.entity';
@@ -67,6 +68,7 @@ import { Schedule } from './schedules/entities/schedule.entity';
     SchedulesModule,
     NotificationsModule,
     ScheduleModule.forRoot(),
+    HealthModule,
     ConfigModule.forRoot({
       isGlobal: true,
     }),

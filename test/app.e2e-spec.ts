@@ -1267,4 +1267,30 @@ describe('Authentication & Authorization (e2e)', () => {
       });
     });
   });
+
+  describe('Step 13: System Health Checks (@nestjs/terminus)', () => {
+    it('GET /health - should allow unauthenticated access (@Public) and return status ok with database, redis, memory indicators', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/health')
+        .expect(200);
+
+      const body = response.body as {
+        status: string;
+        info: {
+          database?: { status: string };
+          redis?: { status: string };
+          memory_heap?: { status: string };
+          memory_rss?: { status: string };
+        };
+        success?: boolean;
+      };
+
+      expect(body.status).toBe('ok');
+      expect(body.info).toBeDefined();
+      expect(body.info.database?.status).toBe('up');
+      expect(body.info.redis?.status).toBe('up');
+      expect(body.info.memory_heap?.status).toBe('up');
+      expect(body.info.memory_rss?.status).toBe('up');
+    });
+  });
 });
