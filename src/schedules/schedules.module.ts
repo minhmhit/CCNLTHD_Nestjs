@@ -7,6 +7,7 @@ import { ScheduleOwnershipGuard } from './guards/schedule-owner.guard';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { AuthModule } from '../auth/auth.module';
 import { SchedulesGateway } from './gateways/schedules.gateway';
+import { ScheduleTasksService } from './tasks/schedule-tasks.service';
 
 @Module({
   imports: [
@@ -19,11 +20,13 @@ import { SchedulesGateway } from './gateways/schedules.gateway';
     SchedulesService,
     ScheduleOwnershipGuard,
     SchedulesGateway,
+    ScheduleTasksService,
   ],
   exports: [
     SchedulesService,
     ScheduleOwnershipGuard,
     SchedulesGateway,
+    ScheduleTasksService,
     TypeOrmModule,
   ],
 })

@@ -37,6 +37,9 @@ export class Schedule {
   })
   status!: ScheduleStatus;
 
+  @Column({ type: 'boolean', default: false })
+  isReminderSent!: boolean;
+
   @Column({ nullable: false })
   userId!: number;
 

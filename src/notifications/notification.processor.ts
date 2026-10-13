@@ -36,9 +36,15 @@ export class NotificationProcessor extends WorkerHost {
     // Giả lập tác vụ I/O gửi email/thông báo xác nhận
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    this.logger.log(
-      `[BullMQ Worker] Đã gửi thông báo cho Schedule ID = ${scheduleId} (User ID: ${userId}, Tiêu đề: "${title}", Bắt đầu: ${formattedStartTime})`,
-    );
+    if (job.name === 'send-meeting-reminder') {
+      this.logger.log(
+        `[BullMQ Worker] Đã gửi thông báo nhắc nhở cho cuộc họp Schedule ID = ${scheduleId} (User ID: ${userId}, Tiêu đề: "${title}", Bắt đầu: ${formattedStartTime})`,
+      );
+    } else {
+      this.logger.log(
+        `[BullMQ Worker] Đã gửi thông báo cho Schedule ID = ${scheduleId} (User ID: ${userId}, Tiêu đề: "${title}", Bắt đầu: ${formattedStartTime})`,
+      );
+    }
   }
 
   @OnWorkerEvent('failed')
