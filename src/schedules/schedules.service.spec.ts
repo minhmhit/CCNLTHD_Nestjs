@@ -15,6 +15,8 @@ import { SchedulesService } from './schedules.service';
 import { Schedule } from './entities/schedule.entity';
 import { Resource } from 'src/resources/entities/resource.entity';
 import { ScheduleStatus } from './enums/schedule-status.enum';
+import { getQueueToken } from '@nestjs/bullmq';
+import { SchedulesGateway } from './gateways/schedules.gateway';
 
 describe('SchedulesService', () => {
   let service: SchedulesService;
@@ -24,6 +26,13 @@ describe('SchedulesService', () => {
   let dataSource: Partial<
     Record<keyof DataSource, jest.Mock>
   >;
+  let notificationQueue: { add: jest.Mock };
+  let schedulesGateway: {
+    server: {
+      to: jest.Mock;
+      emit: jest.Mock;
+    };
+  };
 
   beforeEach(async () => {
     schedulesRepository = {
@@ -34,6 +43,19 @@ describe('SchedulesService', () => {
 
     dataSource = {
       transaction: jest.fn(),
+    };
+
+    notificationQueue = {
+      add: jest
+        .fn()
+        .mockResolvedValue({ id: 'schedule_10' }),
+    };
+
+    schedulesGateway = {
+      server: {
+        to: jest.fn().mockReturnThis(),
+        emit: jest.fn(),
+      },
     };
 
     const module: TestingModule =
@@ -47,6 +69,14 @@ describe('SchedulesService', () => {
           {
             provide: DataSource,
             useValue: dataSource,
+          },
+          {
+            provide: getQueueToken('booking-notification'),
+            useValue: notificationQueue,
+          },
+          {
+            provide: SchedulesGateway,
+            useValue: schedulesGateway,
           },
         ],
       }).compile();
@@ -198,6 +228,7 @@ describe('SchedulesService', () => {
       const createdSchedule = {
         id: 10,
         title: 'Họp',
+        resourceId: 1,
         status: ScheduleStatus.CONFIRMED,
       };
 
@@ -242,6 +273,27 @@ describe('SchedulesService', () => {
       );
 
       expect(result).toBe(createdSchedule);
+      expect(notificationQueue.add).toHaveBeenCalledWith(
+        'send-booking-confirmation',
+        expect.objectContaining({
+          scheduleId: 10,
+          userId: 1,
+          title: 'Họp',
+        }),
+        expect.objectContaining({
+          jobId: 'schedule_10',
+          attempts: 3,
+        }),
+      );
+      expect(
+        schedulesGateway.server.to,
+      ).toHaveBeenCalledWith('resource_1');
+      expect(
+        schedulesGateway.server.emit,
+      ).toHaveBeenCalledWith(
+        'scheduleCreated',
+        createdSchedule,
+      );
     });
   });
 
@@ -391,6 +443,35 @@ describe('SchedulesService', () => {
           status: ScheduleStatus.CONFIRMED,
         }),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('remove', () => {
+    it('should cancel schedule and emit scheduleCancelled event to resource room', async () => {
+      const mockSchedule = {
+        id: 5,
+        resourceId: 2,
+        status: ScheduleStatus.CONFIRMED,
+      } as Schedule;
+
+      schedulesRepository.findOne?.mockResolvedValue(
+        mockSchedule,
+      );
+      schedulesRepository.save?.mockImplementation(
+        (s: Schedule) => Promise.resolve(s),
+      );
+
+      const result = await service.remove(5);
+
+      expect(result.status).toBe(ScheduleStatus.CANCELLED);
+      expect(
+        schedulesGateway.server.to,
+      ).toHaveBeenCalledWith('resource_2');
+      expect(
+        schedulesGateway.server.emit,
+      ).toHaveBeenCalledWith('scheduleCancelled', {
+        id: 5,
+      });
     });
   });
 });

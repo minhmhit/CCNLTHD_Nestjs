@@ -14,6 +14,9 @@ import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { UpdateScheduleStatusDto } from './dto/update-schedule-status.dto';
 import { QueryScheduleDto } from './dto/query-schedule.dto';
 import { ScheduleStatus } from './enums/schedule-status.enum';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { SchedulesGateway } from './gateways/schedules.gateway';
 
 @Injectable()
 export class SchedulesService {
@@ -21,6 +24,9 @@ export class SchedulesService {
     @InjectRepository(Schedule)
     private readonly schedulesRepository: Repository<Schedule>,
     private readonly dataSource: DataSource,
+    @InjectQueue('booking-notification')
+    private readonly notificationQueue: Queue,
+    private readonly schedulesGateway: SchedulesGateway,
   ) {}
 
   async findAll(query: QueryScheduleDto) {
@@ -97,62 +103,89 @@ export class SchedulesService {
         ? currentUser
         : currentUser.id;
 
-    return this.dataSource.transaction(async (manager) => {
-      // Bước 1: Khóa bi quan (Pessimistic Write Lock) trên bản ghi Resource và kiểm tra isActive
-      const resource = await manager
-        .getRepository(Resource)
-        .createQueryBuilder('resource')
-        .setLock('pessimistic_write')
-        .where('resource.id = :id', {
-          id: createScheduleDto.resourceId,
-        })
-        .getOne();
+    const savedSchedule = await this.dataSource.transaction(
+      async (manager) => {
+        // Bước 1: Khóa bi quan (Pessimistic Write Lock) trên bản ghi Resource và kiểm tra isActive
+        const resource = await manager
+          .getRepository(Resource)
+          .createQueryBuilder('resource')
+          .setLock('pessimistic_write')
+          .where('resource.id = :id', {
+            id: createScheduleDto.resourceId,
+          })
+          .getOne();
 
-      if (!resource || !resource.isActive) {
-        throw new NotFoundException(
-          'Tài nguyên phòng họp không tồn tại hoặc đang tạm ngưng hoạt động!',
-        );
-      }
+        if (!resource || !resource.isActive) {
+          throw new NotFoundException(
+            'Tài nguyên phòng họp không tồn tại hoặc đang tạm ngưng hoạt động!',
+          );
+        }
 
-      // Bước 2: Kiểm tra xung đột khung giờ (Overlap Check)
-      // Điều kiện: resourceId = :resourceId AND status != 'CANCELLED' AND startTime < :newEndTime AND endTime > :newStartTime
-      const overlappingSchedule = await manager
-        .getRepository(Schedule)
-        .createQueryBuilder('schedule')
-        .where('schedule.resourceId = :resourceId', {
-          resourceId: createScheduleDto.resourceId,
-        })
-        .andWhere('schedule.status != :cancelled', {
-          cancelled: ScheduleStatus.CANCELLED,
-        })
-        .andWhere('schedule.startTime < :newEndTime', {
-          newEndTime: new Date(createScheduleDto.endTime),
-        })
-        .andWhere('schedule.endTime > :newStartTime', {
-          newStartTime: new Date(
-            createScheduleDto.startTime,
-          ),
-        })
-        .getOne();
+        // Bước 2: Kiểm tra xung đột khung giờ (Overlap Check)
+        // Điều kiện: resourceId = :resourceId AND status != 'CANCELLED' AND startTime < :newEndTime AND endTime > :newStartTime
+        const overlappingSchedule = await manager
+          .getRepository(Schedule)
+          .createQueryBuilder('schedule')
+          .where('schedule.resourceId = :resourceId', {
+            resourceId: createScheduleDto.resourceId,
+          })
+          .andWhere('schedule.status != :cancelled', {
+            cancelled: ScheduleStatus.CANCELLED,
+          })
+          .andWhere('schedule.startTime < :newEndTime', {
+            newEndTime: new Date(createScheduleDto.endTime),
+          })
+          .andWhere('schedule.endTime > :newStartTime', {
+            newStartTime: new Date(
+              createScheduleDto.startTime,
+            ),
+          })
+          .getOne();
 
-      if (overlappingSchedule) {
-        throw new ConflictException(
-          'Phòng họp đã được đặt trong khung giờ này. Vui lòng chọn thời gian khác!',
-        );
-      }
+        if (overlappingSchedule) {
+          throw new ConflictException(
+            'Phòng họp đã được đặt trong khung giờ này. Vui lòng chọn thời gian khác!',
+          );
+        }
 
-      // Bước 3: Tạo mới Schedule với userId = currentUser.id
-      const newSchedule = manager.create(Schedule, {
-        ...createScheduleDto,
-        startTime: new Date(createScheduleDto.startTime),
-        endTime: new Date(createScheduleDto.endTime),
+        // Bước 3: Tạo mới Schedule với userId = currentUser.id
+        const newSchedule = manager.create(Schedule, {
+          ...createScheduleDto,
+          startTime: new Date(createScheduleDto.startTime),
+          endTime: new Date(createScheduleDto.endTime),
+          userId,
+          status: ScheduleStatus.CONFIRMED,
+        });
+
+        // Bước 4 & 5: Lưu vào DB thông qua manager.save và trả về kết quả
+        return manager.save(Schedule, newSchedule);
+      },
+    );
+
+    // Đẩy job gửi thông báo xác nhận vào hàng đợi BullMQ (bất đồng bộ, không block HTTP request)
+    await this.notificationQueue.add(
+      'send-booking-confirmation',
+      {
+        scheduleId: savedSchedule.id,
         userId,
-        status: ScheduleStatus.CONFIRMED,
-      });
+        title: savedSchedule.title,
+        startTime: savedSchedule.startTime,
+      },
+      {
+        jobId: `schedule_${savedSchedule.id}`, // Idempotency Key chống trùng lặp
+        attempts: 3, // Thử lại tối đa 3 lần
+        backoff: { type: 'exponential', delay: 2000 },
+      },
+    );
 
-      // Bước 4 & 5: Lưu vào DB thông qua manager.save và trả về kết quả
-      return manager.save(Schedule, newSchedule);
-    });
+    // Phát sự kiện realtime qua WebSocket Gateway tới các client đang theo dõi theo Room (resourceId)
+    if (this.schedulesGateway?.server) {
+      this.schedulesGateway.server
+        .to(`resource_${savedSchedule.resourceId}`)
+        .emit('scheduleCreated', savedSchedule);
+    }
+
+    return savedSchedule;
   }
 
   async createWithSimulatedRollback(
@@ -368,6 +401,18 @@ export class SchedulesService {
       ScheduleStatus.CANCELLED,
     );
     schedule.status = ScheduleStatus.CANCELLED;
-    return this.schedulesRepository.save(schedule);
+    const cancelledSchedule =
+      await this.schedulesRepository.save(schedule);
+
+    // Phát sự kiện realtime qua WebSocket Gateway tới các client đang theo dõi theo Room (resourceId)
+    if (this.schedulesGateway?.server) {
+      this.schedulesGateway.server
+        .to(`resource_${cancelledSchedule.resourceId}`)
+        .emit('scheduleCancelled', {
+          id: cancelledSchedule.id,
+        });
+    }
+
+    return cancelledSchedule;
   }
 }

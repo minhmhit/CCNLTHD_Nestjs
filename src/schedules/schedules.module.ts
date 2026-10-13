@@ -4,14 +4,29 @@ import { Schedule } from './entities/schedule.entity';
 import { SchedulesController } from './schedules.controller';
 import { SchedulesService } from './schedules.service';
 import { ScheduleOwnershipGuard } from './guards/schedule-owner.guard';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { AuthModule } from '../auth/auth.module';
+import { SchedulesGateway } from './gateways/schedules.gateway';
+import { ScheduleTasksService } from './tasks/schedule-tasks.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Schedule])],
+  imports: [
+    TypeOrmModule.forFeature([Schedule]),
+    NotificationsModule,
+    AuthModule,
+  ],
   controllers: [SchedulesController],
-  providers: [SchedulesService, ScheduleOwnershipGuard],
+  providers: [
+    SchedulesService,
+    ScheduleOwnershipGuard,
+    SchedulesGateway,
+    ScheduleTasksService,
+  ],
   exports: [
     SchedulesService,
     ScheduleOwnershipGuard,
+    SchedulesGateway,
+    ScheduleTasksService,
     TypeOrmModule,
   ],
 })
