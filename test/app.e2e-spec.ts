@@ -1086,4 +1086,114 @@ describe('Authentication & Authorization (e2e)', () => {
       );
     });
   });
+
+  describe('Step 9: Redis Cache-Aside & Cache Invalidation', () => {
+    let testRoomId: number;
+
+    beforeAll(async () => {
+      // Lấy phòng họp đầu tiên có sẵn trong danh sách (đảm bảo luôn nằm trong page 1)
+      const listRes = await request(app.getHttpServer())
+        .get('/resources')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const listBody = listRes.body as ApiSuccessResponse<{
+        items: Array<{ id: number; capacity: number }>;
+      }>;
+      testRoomId = listBody.data.items[0].id;
+
+      // Đặt sức chứa ban đầu về 20
+      await request(app.getHttpServer())
+        .patch(`/resources/${testRoomId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ capacity: 20 })
+        .expect(200);
+    });
+
+    it('9.1 Cache-Aside - should cache GET /resources on first call (Cache MISS) and serve from Redis on subsequent call (Cache HIT)', async () => {
+      // Lần 1: Cache MISS -> query TypeORM và nạp vào Redis
+      const firstRes = await request(app.getHttpServer())
+        .get('/resources')
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200);
+
+      const firstBody =
+        firstRes.body as ApiSuccessResponse<{
+          items: Array<{ id: number; capacity: number }>;
+        }>;
+      const initialRoom = firstBody.data.items.find(
+        (r) => r.id === testRoomId,
+      );
+      expect(initialRoom).toBeDefined();
+      expect(initialRoom?.capacity).toBe(20);
+
+      // Lần 2: Cache HIT -> lấy trực tiếp từ Redis
+      const secondRes = await request(app.getHttpServer())
+        .get('/resources')
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200);
+
+      const secondBody =
+        secondRes.body as ApiSuccessResponse<{
+          items: Array<{ id: number; capacity: number }>;
+        }>;
+      const cachedRoom = secondBody.data.items.find(
+        (r) => r.id === testRoomId,
+      );
+      expect(cachedRoom).toBeDefined();
+      expect(cachedRoom?.capacity).toBe(20);
+    });
+
+    it('9.2 Cache Invalidation - Admin PATCH /resources/:id should purge cache and prevent stale data', async () => {
+      // Bước 1: Gọi GET /resources để đảm bảo dữ liệu được cache vào Redis
+      const getResBefore = await request(
+        app.getHttpServer(),
+      )
+        .get('/resources')
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200);
+
+      const bodyBefore =
+        getResBefore.body as ApiSuccessResponse<{
+          items: Array<{ id: number; capacity: number }>;
+        }>;
+      const roomBefore = bodyBefore.data.items.find(
+        (r) => r.id === testRoomId,
+      );
+      expect(roomBefore?.capacity).toBe(20);
+
+      // Bước 2: Admin gọi PATCH /resources/:id sửa sức chứa phòng từ 20 thành 50
+      const patchRes = await request(app.getHttpServer())
+        .patch(`/resources/${testRoomId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          capacity: 50,
+        })
+        .expect(200);
+
+      const patchBody =
+        patchRes.body as ApiSuccessResponse<{
+          id: number;
+          capacity: number;
+        }>;
+      expect(patchBody.data.capacity).toBe(50);
+
+      // Bước 3: Gọi lại GET /resources ngay lập tức -> Xác nhận dữ liệu trả về cập nhật sức chứa mới là 50
+      // (Chứng minh cache cũ đã bị xóa, không bị lỗi Stale Data)
+      const getResAfter = await request(app.getHttpServer())
+        .get('/resources')
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200);
+
+      const bodyAfter =
+        getResAfter.body as ApiSuccessResponse<{
+          items: Array<{ id: number; capacity: number }>;
+        }>;
+      const roomAfter = bodyAfter.data.items.find(
+        (r) => r.id === testRoomId,
+      );
+      expect(roomAfter).toBeDefined();
+      expect(roomAfter?.capacity).toBe(50);
+    });
+  });
 });
