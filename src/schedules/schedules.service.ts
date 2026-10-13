@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   InternalServerErrorException,
@@ -10,6 +11,7 @@ import { Schedule } from './entities/schedule.entity';
 import { Resource } from 'src/resources/entities/resource.entity';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
+import { UpdateScheduleStatusDto } from './dto/update-schedule-status.dto';
 import { QueryScheduleDto } from './dto/query-schedule.dto';
 import { ScheduleStatus } from './enums/schedule-status.enum';
 
@@ -212,6 +214,43 @@ export class SchedulesService {
     });
   }
 
+  validateStatusTransition(
+    currentStatus: ScheduleStatus,
+    newStatus: ScheduleStatus,
+  ): void {
+    if (currentStatus === newStatus) {
+      return;
+    }
+
+    if (currentStatus === ScheduleStatus.CANCELLED) {
+      throw new BadRequestException(
+        'Không thể cập nhật lịch hẹn đã bị hủy (CANCELLED)!',
+      );
+    }
+
+    const validTransitions: Record<
+      ScheduleStatus,
+      ScheduleStatus[]
+    > = {
+      [ScheduleStatus.PENDING]: [
+        ScheduleStatus.CONFIRMED,
+        ScheduleStatus.CANCELLED,
+      ],
+      [ScheduleStatus.CONFIRMED]: [
+        ScheduleStatus.CANCELLED,
+      ],
+      [ScheduleStatus.CANCELLED]: [],
+    };
+
+    if (
+      !validTransitions[currentStatus]?.includes(newStatus)
+    ) {
+      throw new BadRequestException(
+        `Không thể chuyển trạng thái từ ${currentStatus} sang ${newStatus}! Trạng thái chỉ được phép cập nhật theo chiều tiến lên (PENDING -> CONFIRMED -> CANCELLED).`,
+      );
+    }
+  }
+
   async update(
     id: number,
     updateScheduleDto: UpdateScheduleDto,
@@ -299,8 +338,25 @@ export class SchedulesService {
     });
   }
 
+  async updateStatus(
+    id: number,
+    updateScheduleStatusDto: UpdateScheduleStatusDto,
+  ): Promise<Schedule> {
+    const schedule = await this.findById(id);
+    this.validateStatusTransition(
+      schedule.status,
+      updateScheduleStatusDto.status,
+    );
+    schedule.status = updateScheduleStatusDto.status;
+    return this.schedulesRepository.save(schedule);
+  }
+
   async remove(id: number): Promise<Schedule> {
     const schedule = await this.findById(id);
+    this.validateStatusTransition(
+      schedule.status,
+      ScheduleStatus.CANCELLED,
+    );
     schedule.status = ScheduleStatus.CANCELLED;
     return this.schedulesRepository.save(schedule);
   }

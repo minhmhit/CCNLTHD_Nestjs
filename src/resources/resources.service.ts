@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 import { Resource } from './entities/resource.entity';
 import { CreateResourceDto } from './dto/create-resource.dto';
 import { UpdateResourceDto } from './dto/update-resource.dto';
+import { QueryResourceDto } from './dto/query-resource.dto';
 
 @Injectable()
 export class ResourcesService {
@@ -16,10 +17,64 @@ export class ResourcesService {
     private readonly resourcesRepository: Repository<Resource>,
   ) {}
 
-  async findAll(): Promise<Resource[]> {
-    return this.resourcesRepository.find({
-      order: { id: 'ASC' },
-    });
+  async findAll(query?: QueryResourceDto) {
+    const page = query?.page || 1;
+    const limit = query?.limit || 10;
+    const skip = (page - 1) * limit;
+
+    const queryBuilder =
+      this.resourcesRepository.createQueryBuilder(
+        'resource',
+      );
+
+    if (query?.name) {
+      queryBuilder.andWhere('resource.name ILIKE :name', {
+        name: `%${query.name}%`,
+      });
+    }
+
+    if (query?.minCapacity) {
+      queryBuilder.andWhere(
+        'resource.capacity >= :minCapacity',
+        {
+          minCapacity: query.minCapacity,
+        },
+      );
+    }
+
+    if (query?.maxCapacity) {
+      queryBuilder.andWhere(
+        'resource.capacity <= :maxCapacity',
+        {
+          maxCapacity: query.maxCapacity,
+        },
+      );
+    }
+
+    if (query?.isActive !== undefined) {
+      queryBuilder.andWhere(
+        'resource.isActive = :isActive',
+        {
+          isActive: query.isActive,
+        },
+      );
+    }
+
+    queryBuilder
+      .skip(skip)
+      .take(limit)
+      .orderBy('resource.id', 'ASC');
+
+    const [items, total] =
+      await queryBuilder.getManyAndCount();
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findOne(id: number): Promise<Resource> {

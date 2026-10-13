@@ -129,7 +129,6 @@ export class AuthService {
       this.configService.getOrThrow<string>('JWT_SECRET');
     const jwtExpiresIn = this.configService.get<string>(
       'JWT_EXPIRES_IN',
-      '1d',
     );
     const refreshSecret =
       this.configService.getOrThrow<string>(
@@ -137,7 +136,6 @@ export class AuthService {
       );
     const refreshExpiresIn = this.configService.get<string>(
       'JWT_REFRESH_EXPIRES_IN',
-      '7d',
     );
 
     const [accessToken, refreshToken] = await Promise.all([
@@ -162,7 +160,7 @@ export class AuthService {
 
   async refreshTokens(
     refreshToken: string,
-  ): Promise<AuthResponse> {
+  ): Promise<AuthTokens> {
     const refreshSecret =
       this.configService.getOrThrow<string>(
         'JWT_REFRESH_SECRET',
@@ -208,7 +206,6 @@ export class AuthService {
 
     return {
       ...tokens,
-      user: this.sanitizeUser(user),
     };
   }
 
