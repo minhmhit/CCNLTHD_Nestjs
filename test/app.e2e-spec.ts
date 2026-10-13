@@ -6,6 +6,9 @@ import {
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
+import { getQueueToken } from '@nestjs/bullmq';
+import { Queue, Job } from 'bullmq';
+import { BookingNotificationJobData } from '../src/notifications/notification.processor';
 
 interface ApiSuccessResponse<T> {
   success: boolean;
@@ -1194,6 +1197,74 @@ describe('Authentication & Authorization (e2e)', () => {
       );
       expect(roomAfter).toBeDefined();
       expect(roomAfter?.capacity).toBe(50);
+    });
+  });
+
+  describe('Step 10: Background Queue & BullMQ Notifications', () => {
+    let queueResourceId: number;
+
+    beforeAll(async () => {
+      const roomRes = await request(app.getHttpServer())
+        .post('/resources')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: `Phòng Test BullMQ ${Date.now()}`,
+          capacity: 15,
+          isActive: true,
+        })
+        .expect(201);
+
+      queueResourceId = (
+        roomRes.body as ApiSuccessResponse<{ id: number }>
+      ).data.id;
+    });
+
+    it('10.1 Background Queue - Booking pushes job into BullMQ and processes asynchronously without blocking HTTP response', async () => {
+      const startTime = new Date(
+        Date.now() + 80 * 60 * 60 * 1000,
+      ).toISOString();
+      const endTime = new Date(
+        Date.now() + 81 * 60 * 60 * 1000,
+      ).toISOString();
+
+      const startTimeMs = Date.now();
+      const response = await request(app.getHttpServer())
+        .post('/schedules')
+        .set('Authorization', `Bearer ${memberToken}`)
+        .send({
+          title: 'Họp Kiểm Thử BullMQ Background Queue',
+          resourceId: queueResourceId,
+          startTime,
+          endTime,
+        })
+        .expect(201);
+      const durationMs = Date.now() - startTimeMs;
+
+      // API phản hồi cực nhanh vì không bị nghẽn bởi tác vụ gửi thông báo
+      expect(durationMs).toBeLessThan(1000);
+
+      const body = response.body as ApiSuccessResponse<{
+        id: number;
+        title: string;
+        status: string;
+      }>;
+      expect(body.success).toBe(true);
+      expect(body.data.id).toBeDefined();
+
+      // Kiểm tra Queue có job tương ứng với idempotency key
+      const queue = app.get<
+        Queue<BookingNotificationJobData>
+      >(getQueueToken('booking-notification'));
+      const job:
+        Job<BookingNotificationJobData> | undefined =
+        await queue.getJob(`schedule_${body.data.id}`);
+      expect(job).toBeDefined();
+      expect(job?.data.scheduleId).toBe(body.data.id);
+      expect(job?.opts.attempts).toBe(3);
+      expect(job?.opts.backoff).toEqual({
+        type: 'exponential',
+        delay: 2000,
+      });
     });
   });
 });

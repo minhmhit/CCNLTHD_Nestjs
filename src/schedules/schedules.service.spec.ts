@@ -15,6 +15,7 @@ import { SchedulesService } from './schedules.service';
 import { Schedule } from './entities/schedule.entity';
 import { Resource } from 'src/resources/entities/resource.entity';
 import { ScheduleStatus } from './enums/schedule-status.enum';
+import { getQueueToken } from '@nestjs/bullmq';
 
 describe('SchedulesService', () => {
   let service: SchedulesService;
@@ -24,6 +25,7 @@ describe('SchedulesService', () => {
   let dataSource: Partial<
     Record<keyof DataSource, jest.Mock>
   >;
+  let notificationQueue: { add: jest.Mock };
 
   beforeEach(async () => {
     schedulesRepository = {
@@ -34,6 +36,12 @@ describe('SchedulesService', () => {
 
     dataSource = {
       transaction: jest.fn(),
+    };
+
+    notificationQueue = {
+      add: jest
+        .fn()
+        .mockResolvedValue({ id: 'schedule_10' }),
     };
 
     const module: TestingModule =
@@ -47,6 +55,10 @@ describe('SchedulesService', () => {
           {
             provide: DataSource,
             useValue: dataSource,
+          },
+          {
+            provide: getQueueToken('booking-notification'),
+            useValue: notificationQueue,
           },
         ],
       }).compile();
@@ -242,6 +254,18 @@ describe('SchedulesService', () => {
       );
 
       expect(result).toBe(createdSchedule);
+      expect(notificationQueue.add).toHaveBeenCalledWith(
+        'send-booking-confirmation',
+        expect.objectContaining({
+          scheduleId: 10,
+          userId: 1,
+          title: 'Họp',
+        }),
+        expect.objectContaining({
+          jobId: 'schedule_10',
+          attempts: 3,
+        }),
+      );
     });
   });
 

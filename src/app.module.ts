@@ -24,6 +24,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { ResourcesModule } from './resources/resources.module';
 import { SchedulesModule } from './schedules/schedules.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 // Entities
 import { User } from './users/entities/user.entity';
@@ -63,6 +64,7 @@ import { Schedule } from './schedules/entities/schedule.entity';
     UsersModule,
     ResourcesModule,
     SchedulesModule,
+    NotificationsModule,
     ConfigModule.forRoot({
       isGlobal: true,
     }),
