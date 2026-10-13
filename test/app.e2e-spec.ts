@@ -279,12 +279,16 @@ describe('Authentication & Authorization (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      const body = response.body as ApiSuccessResponse<
-        any[]
-      >;
+      const body = response.body as ApiSuccessResponse<{
+        items: any[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+      }>;
       expect(body.success).toBe(true);
-      expect(Array.isArray(body.data)).toBe(true);
-      expect(body.data.length).toBeGreaterThan(0);
+      expect(Array.isArray(body.data.items)).toBe(true);
+      expect(body.data.items.length).toBeGreaterThan(0);
     });
 
     it('POST /resources - should reject MEMBER with 403 Forbidden', () => {
@@ -927,6 +931,269 @@ describe('Authentication & Authorization (e2e)', () => {
       expect(body.statusCode).toBe(200);
       expect(body.data).toBe('Scheduling API is running!');
       expect(body).toHaveProperty('timestamp');
+    });
+  });
+
+  describe('Step 8: Concurrency Locking with Pessimistic Write Lock', () => {
+    let concurrencyResourceId: number;
+    const tokens: string[] = [];
+
+    beforeAll(async () => {
+      // 1. Tạo 1 phòng họp test độc lập
+      const roomRes = await request(app.getHttpServer())
+        .post('/resources')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: `Phòng Test Concurrency ${Date.now()}`,
+          capacity: 30,
+          isActive: true,
+        })
+        .expect(201);
+
+      concurrencyResourceId = (
+        roomRes.body as ApiSuccessResponse<{ id: number }>
+      ).data.id;
+
+      // 2. Thu thập 10 tokens độc lập (admin + member1 + member2 + 7 users mới)
+      tokens.push(adminToken);
+
+      const m1Res = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: 'member1@example.com',
+          password: 'password123',
+        })
+        .expect(200);
+      tokens.push(
+        (
+          m1Res.body as ApiSuccessResponse<LoginResponseBody>
+        ).data.accessToken,
+      );
+
+      const m2Res = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: 'member2@example.com',
+          password: 'password123',
+        })
+        .expect(200);
+      tokens.push(
+        (
+          m2Res.body as ApiSuccessResponse<LoginResponseBody>
+        ).data.accessToken,
+      );
+
+      for (let i = 1; i <= 7; i++) {
+        const email = `concurrency_user_${Date.now()}_${i}@example.com`;
+        await request(app.getHttpServer())
+          .post('/auth/register')
+          .send({
+            email,
+            password: 'Password123!',
+            fullName: `Concurrent User ${i}`,
+          })
+          .expect(201);
+
+        const loginRes = await request(app.getHttpServer())
+          .post('/auth/login')
+          .send({
+            email,
+            password: 'Password123!',
+          })
+          .expect(200);
+
+        tokens.push(
+          (
+            loginRes.body as ApiSuccessResponse<LoginResponseBody>
+          ).data.accessToken,
+        );
+      }
+    });
+
+    it('8.2 Concurrency - 10 simultaneous requests booking the same room & time: exactly 1 succeeds (201) and 9 blocked (409)', async () => {
+      const fixedStartTime = new Date(
+        Date.now() + 48 * 60 * 60 * 1000,
+      ).toISOString();
+      const fixedEndTime = new Date(
+        Date.now() + 49 * 60 * 60 * 1000,
+      ).toISOString();
+
+      // Gửi đồng thời 10 request đặt lịch bằng Promise.all với CÙNG một khung giờ trên cùng phòng đó bằng các token khác nhau
+      const requests = tokens.map((token, index) =>
+        request(app.getHttpServer())
+          .post('/schedules')
+          .set('Authorization', `Bearer ${token}`)
+          .send({
+            title: `Đặt lịch tranh chấp đồng thời #${index + 1}`,
+            resourceId: concurrencyResourceId,
+            startTime: fixedStartTime,
+            endTime: fixedEndTime,
+          }),
+      );
+
+      const responses = await Promise.all(requests);
+
+      // Đếm số lượng response có status 201 Created: BẮT BUỘC chỉ đúng 1 request thành công
+      const successResponses = responses.filter(
+        (res) => res.status === 201,
+      );
+      expect(successResponses.length).toBe(1);
+
+      // Đếm số lượng response có status 409 Conflict: BẮT BUỘC đúng 9 request bị chặn
+      const conflictResponses = responses.filter(
+        (res) => res.status === 409,
+      );
+      expect(conflictResponses.length).toBe(9);
+
+      // Kiểm tra response lỗi đều theo chuẩn
+      conflictResponses.forEach((res) => {
+        const body = res.body as {
+          success: boolean;
+          statusCode: number;
+          message: string;
+        };
+        expect(body.success).toBe(false);
+        expect(body.statusCode).toBe(409);
+        expect(body.message).toContain(
+          'Phòng họp đã được đặt trong khung giờ này. Vui lòng chọn thời gian khác!',
+        );
+      });
+
+      // Truy vấn CSDL xác minh: Bảng schedules trong khung giờ đó chỉ tồn tại ĐÚNG 1 bản ghi duy nhất, không có phantom read hoặc duplicate schedule
+      const verifyRes = await request(app.getHttpServer())
+        .get(
+          `/schedules?resourceId=${concurrencyResourceId}&from=${fixedStartTime}&to=${fixedEndTime}`,
+        )
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const verifyBody =
+        verifyRes.body as ApiSuccessResponse<{
+          items: Array<{
+            id: number;
+            resourceId: number;
+            status: string;
+          }>;
+          total: number;
+        }>;
+      expect(verifyBody.data.total).toBe(1);
+      expect(verifyBody.data.items.length).toBe(1);
+      expect(verifyBody.data.items[0].resourceId).toBe(
+        concurrencyResourceId,
+      );
+      expect(verifyBody.data.items[0].status).toBe(
+        'CONFIRMED',
+      );
+    });
+  });
+
+  describe('Step 9: Redis Cache-Aside & Cache Invalidation', () => {
+    let testRoomId: number;
+
+    beforeAll(async () => {
+      // Lấy phòng họp đầu tiên có sẵn trong danh sách (đảm bảo luôn nằm trong page 1)
+      const listRes = await request(app.getHttpServer())
+        .get('/resources')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const listBody = listRes.body as ApiSuccessResponse<{
+        items: Array<{ id: number; capacity: number }>;
+      }>;
+      testRoomId = listBody.data.items[0].id;
+
+      // Đặt sức chứa ban đầu về 20
+      await request(app.getHttpServer())
+        .patch(`/resources/${testRoomId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ capacity: 20 })
+        .expect(200);
+    });
+
+    it('9.1 Cache-Aside - should cache GET /resources on first call (Cache MISS) and serve from Redis on subsequent call (Cache HIT)', async () => {
+      // Lần 1: Cache MISS -> query TypeORM và nạp vào Redis
+      const firstRes = await request(app.getHttpServer())
+        .get('/resources')
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200);
+
+      const firstBody =
+        firstRes.body as ApiSuccessResponse<{
+          items: Array<{ id: number; capacity: number }>;
+        }>;
+      const initialRoom = firstBody.data.items.find(
+        (r) => r.id === testRoomId,
+      );
+      expect(initialRoom).toBeDefined();
+      expect(initialRoom?.capacity).toBe(20);
+
+      // Lần 2: Cache HIT -> lấy trực tiếp từ Redis
+      const secondRes = await request(app.getHttpServer())
+        .get('/resources')
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200);
+
+      const secondBody =
+        secondRes.body as ApiSuccessResponse<{
+          items: Array<{ id: number; capacity: number }>;
+        }>;
+      const cachedRoom = secondBody.data.items.find(
+        (r) => r.id === testRoomId,
+      );
+      expect(cachedRoom).toBeDefined();
+      expect(cachedRoom?.capacity).toBe(20);
+    });
+
+    it('9.2 Cache Invalidation - Admin PATCH /resources/:id should purge cache and prevent stale data', async () => {
+      // Bước 1: Gọi GET /resources để đảm bảo dữ liệu được cache vào Redis
+      const getResBefore = await request(
+        app.getHttpServer(),
+      )
+        .get('/resources')
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200);
+
+      const bodyBefore =
+        getResBefore.body as ApiSuccessResponse<{
+          items: Array<{ id: number; capacity: number }>;
+        }>;
+      const roomBefore = bodyBefore.data.items.find(
+        (r) => r.id === testRoomId,
+      );
+      expect(roomBefore?.capacity).toBe(20);
+
+      // Bước 2: Admin gọi PATCH /resources/:id sửa sức chứa phòng từ 20 thành 50
+      const patchRes = await request(app.getHttpServer())
+        .patch(`/resources/${testRoomId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          capacity: 50,
+        })
+        .expect(200);
+
+      const patchBody =
+        patchRes.body as ApiSuccessResponse<{
+          id: number;
+          capacity: number;
+        }>;
+      expect(patchBody.data.capacity).toBe(50);
+
+      // Bước 3: Gọi lại GET /resources ngay lập tức -> Xác nhận dữ liệu trả về cập nhật sức chứa mới là 50
+      // (Chứng minh cache cũ đã bị xóa, không bị lỗi Stale Data)
+      const getResAfter = await request(app.getHttpServer())
+        .get('/resources')
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200);
+
+      const bodyAfter =
+        getResAfter.body as ApiSuccessResponse<{
+          items: Array<{ id: number; capacity: number }>;
+        }>;
+      const roomAfter = bodyAfter.data.items.find(
+        (r) => r.id === testRoomId,
+      );
+      expect(roomAfter).toBeDefined();
+      expect(roomAfter?.capacity).toBe(50);
     });
   });
 });

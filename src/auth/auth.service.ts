@@ -160,7 +160,7 @@ export class AuthService {
 
   async refreshTokens(
     refreshToken: string,
-  ): Promise<AuthTokens> {
+  ): Promise<AuthResponse> {
     const refreshSecret =
       this.configService.getOrThrow<string>(
         'JWT_REFRESH_SECRET',
@@ -206,6 +206,7 @@ export class AuthService {
 
     return {
       ...tokens,
+      user: this.sanitizeUser(user),
     };
   }
 

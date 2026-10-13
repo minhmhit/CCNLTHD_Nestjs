@@ -98,10 +98,15 @@ export class SchedulesService {
         : currentUser.id;
 
     return this.dataSource.transaction(async (manager) => {
-      // Bước 1: Kiểm tra Resource có tồn tại và đang isActive hay không
-      const resource = await manager.findOne(Resource, {
-        where: { id: createScheduleDto.resourceId },
-      });
+      // Bước 1: Khóa bi quan (Pessimistic Write Lock) trên bản ghi Resource và kiểm tra isActive
+      const resource = await manager
+        .getRepository(Resource)
+        .createQueryBuilder('resource')
+        .setLock('pessimistic_write')
+        .where('resource.id = :id', {
+          id: createScheduleDto.resourceId,
+        })
+        .getOne();
 
       if (!resource || !resource.isActive) {
         throw new NotFoundException(
@@ -160,10 +165,15 @@ export class SchedulesService {
         : currentUser.id;
 
     await this.dataSource.transaction(async (manager) => {
-      // 1. Kiểm tra Resource
-      const resource = await manager.findOne(Resource, {
-        where: { id: createScheduleDto.resourceId },
-      });
+      // 1. Kiểm tra Resource với Pessimistic Lock
+      const resource = await manager
+        .getRepository(Resource)
+        .createQueryBuilder('resource')
+        .setLock('pessimistic_write')
+        .where('resource.id = :id', {
+          id: createScheduleDto.resourceId,
+        })
+        .getOne();
 
       if (!resource || !resource.isActive) {
         throw new NotFoundException(

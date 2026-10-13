@@ -13,6 +13,7 @@ import {
 } from 'typeorm';
 import { SchedulesService } from './schedules.service';
 import { Schedule } from './entities/schedule.entity';
+import { Resource } from 'src/resources/entities/resource.entity';
 import { ScheduleStatus } from './enums/schedule-status.enum';
 
 describe('SchedulesService', () => {
@@ -83,12 +84,28 @@ describe('SchedulesService', () => {
 
   describe('create (Transaction & Overlap Check)', () => {
     it('should throw NotFoundException if resource is not found or inactive', async () => {
+      const mockResourceQb = {
+        setLock: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(null),
+      };
+
       dataSource.transaction?.mockImplementation(
         async (
           cb: (manager: EntityManager) => Promise<unknown>,
         ) => {
           const mockManager = {
-            findOne: jest.fn().mockResolvedValue(null),
+            getRepository: jest
+              .fn()
+              .mockImplementation((entity) => {
+                if (entity === Resource) {
+                  return {
+                    createQueryBuilder: () =>
+                      mockResourceQb,
+                  };
+                }
+                return { createQueryBuilder: () => ({}) };
+              }),
           } as unknown as EntityManager;
           const result = await cb(mockManager);
           return result;
@@ -109,7 +126,15 @@ describe('SchedulesService', () => {
     });
 
     it('should throw ConflictException if overlapping schedule is found', async () => {
-      const mockQueryBuilder = {
+      const mockResourceQb = {
+        setLock: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getOne: jest
+          .fn()
+          .mockResolvedValue({ id: 1, isActive: true }),
+      };
+
+      const mockScheduleQb = {
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         getOne: jest.fn().mockResolvedValue({
@@ -123,12 +148,19 @@ describe('SchedulesService', () => {
           cb: (manager: EntityManager) => Promise<unknown>,
         ) => {
           const mockManager = {
-            findOne: jest
+            getRepository: jest
               .fn()
-              .mockResolvedValue({ id: 1, isActive: true }),
-            getRepository: jest.fn().mockReturnValue({
-              createQueryBuilder: () => mockQueryBuilder,
-            }),
+              .mockImplementation((entity) => {
+                if (entity === Resource) {
+                  return {
+                    createQueryBuilder: () =>
+                      mockResourceQb,
+                  };
+                }
+                return {
+                  createQueryBuilder: () => mockScheduleQb,
+                };
+              }),
           } as unknown as EntityManager;
           const result = await cb(mockManager);
           return result;
@@ -149,7 +181,15 @@ describe('SchedulesService', () => {
     });
 
     it('should save and return new schedule when no overlap occurs', async () => {
-      const mockQueryBuilder = {
+      const mockResourceQb = {
+        setLock: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getOne: jest
+          .fn()
+          .mockResolvedValue({ id: 1, isActive: true }),
+      };
+
+      const mockScheduleQb = {
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         getOne: jest.fn().mockResolvedValue(null),
@@ -166,12 +206,19 @@ describe('SchedulesService', () => {
           cb: (manager: EntityManager) => Promise<unknown>,
         ) => {
           const mockManager = {
-            findOne: jest
+            getRepository: jest
               .fn()
-              .mockResolvedValue({ id: 1, isActive: true }),
-            getRepository: jest.fn().mockReturnValue({
-              createQueryBuilder: () => mockQueryBuilder,
-            }),
+              .mockImplementation((entity) => {
+                if (entity === Resource) {
+                  return {
+                    createQueryBuilder: () =>
+                      mockResourceQb,
+                  };
+                }
+                return {
+                  createQueryBuilder: () => mockScheduleQb,
+                };
+              }),
             create: jest
               .fn()
               .mockReturnValue(createdSchedule),
@@ -200,7 +247,15 @@ describe('SchedulesService', () => {
 
   describe('createWithSimulatedRollback', () => {
     it('should throw InternalServerErrorException to simulate rollback', async () => {
-      const mockQueryBuilder = {
+      const mockResourceQb = {
+        setLock: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getOne: jest
+          .fn()
+          .mockResolvedValue({ id: 1, isActive: true }),
+      };
+
+      const mockScheduleQb = {
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         getOne: jest.fn().mockResolvedValue(null),
@@ -211,12 +266,19 @@ describe('SchedulesService', () => {
           cb: (manager: EntityManager) => Promise<unknown>,
         ) => {
           const mockManager = {
-            findOne: jest
+            getRepository: jest
               .fn()
-              .mockResolvedValue({ id: 1, isActive: true }),
-            getRepository: jest.fn().mockReturnValue({
-              createQueryBuilder: () => mockQueryBuilder,
-            }),
+              .mockImplementation((entity) => {
+                if (entity === Resource) {
+                  return {
+                    createQueryBuilder: () =>
+                      mockResourceQb,
+                  };
+                }
+                return {
+                  createQueryBuilder: () => mockScheduleQb,
+                };
+              }),
             create: jest.fn().mockReturnValue({}),
             save: jest.fn().mockResolvedValue({}),
           } as unknown as EntityManager;
