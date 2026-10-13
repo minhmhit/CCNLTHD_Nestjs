@@ -5,17 +5,25 @@ import { SchedulesController } from './schedules.controller';
 import { SchedulesService } from './schedules.service';
 import { ScheduleOwnershipGuard } from './guards/schedule-owner.guard';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { AuthModule } from '../auth/auth.module';
+import { SchedulesGateway } from './gateways/schedules.gateway';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Schedule]),
     NotificationsModule,
+    AuthModule,
   ],
   controllers: [SchedulesController],
-  providers: [SchedulesService, ScheduleOwnershipGuard],
+  providers: [
+    SchedulesService,
+    ScheduleOwnershipGuard,
+    SchedulesGateway,
+  ],
   exports: [
     SchedulesService,
     ScheduleOwnershipGuard,
+    SchedulesGateway,
     TypeOrmModule,
   ],
 })

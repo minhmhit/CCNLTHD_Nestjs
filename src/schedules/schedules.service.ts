@@ -16,6 +16,7 @@ import { QueryScheduleDto } from './dto/query-schedule.dto';
 import { ScheduleStatus } from './enums/schedule-status.enum';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { SchedulesGateway } from './gateways/schedules.gateway';
 
 @Injectable()
 export class SchedulesService {
@@ -25,6 +26,7 @@ export class SchedulesService {
     private readonly dataSource: DataSource,
     @InjectQueue('booking-notification')
     private readonly notificationQueue: Queue,
+    private readonly schedulesGateway: SchedulesGateway,
   ) {}
 
   async findAll(query: QueryScheduleDto) {
@@ -175,6 +177,13 @@ export class SchedulesService {
         backoff: { type: 'exponential', delay: 2000 },
       },
     );
+
+    // Phát sự kiện realtime qua WebSocket Gateway tới các client đang theo dõi theo Room (resourceId)
+    if (this.schedulesGateway?.server) {
+      this.schedulesGateway.server
+        .to(`resource_${savedSchedule.resourceId}`)
+        .emit('scheduleCreated', savedSchedule);
+    }
 
     return savedSchedule;
   }
@@ -392,6 +401,18 @@ export class SchedulesService {
       ScheduleStatus.CANCELLED,
     );
     schedule.status = ScheduleStatus.CANCELLED;
-    return this.schedulesRepository.save(schedule);
+    const cancelledSchedule =
+      await this.schedulesRepository.save(schedule);
+
+    // Phát sự kiện realtime qua WebSocket Gateway tới các client đang theo dõi theo Room (resourceId)
+    if (this.schedulesGateway?.server) {
+      this.schedulesGateway.server
+        .to(`resource_${cancelledSchedule.resourceId}`)
+        .emit('scheduleCancelled', {
+          id: cancelledSchedule.id,
+        });
+    }
+
+    return cancelledSchedule;
   }
 }
