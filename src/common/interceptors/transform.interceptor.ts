@@ -28,12 +28,35 @@ export class TransformInterceptor<
       .getResponse<Response>();
 
     return next.handle().pipe(
-      map((data: T) => ({
-        success: true,
-        statusCode: response.statusCode || 200,
-        data,
-        timestamp: new Date().toISOString(),
-      })),
+      map((data: T) => {
+        if (
+          data &&
+          typeof data === 'object' &&
+          'status' in data &&
+          'info' in data
+        ) {
+          const healthData = data as Record<
+            string,
+            unknown
+          >;
+          return {
+            status: healthData.status,
+            info: healthData.info,
+            details: healthData.details,
+            success: true,
+            statusCode: response.statusCode || 200,
+            data,
+            timestamp: new Date().toISOString(),
+          } as unknown as ResponseSuccessFormat<T>;
+        }
+
+        return {
+          success: true,
+          statusCode: response.statusCode || 200,
+          data,
+          timestamp: new Date().toISOString(),
+        };
+      }),
     );
   }
 }
