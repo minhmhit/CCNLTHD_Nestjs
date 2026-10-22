@@ -66,14 +66,17 @@ describe('NotificationProcessor', () => {
     ).resolves.toBeUndefined();
 
     // Xác nhận gọi MailerService.sendMail với đúng người nhận và nội dung HTML
-    expect(mailerService.sendMail).toHaveBeenCalledWith(
-      expect.objectContaining({
-        to: 'member@test.com',
-        subject: expect.stringContaining(
-          'Họp Chiến Lược Q1',
-        ),
-        html: expect.stringContaining('Phòng Hội Nghị A'),
-      }),
+    expect(mailerService.sendMail).toHaveBeenCalledTimes(1);
+    const sentMailOptions = mailerService.sendMail.mock
+      .calls[0] as [
+      { to: string; subject: string; html: string },
+    ];
+    expect(sentMailOptions[0].to).toBe('member@test.com');
+    expect(sentMailOptions[0].subject).toContain(
+      'Họp Chiến Lược Q1',
+    );
+    expect(sentMailOptions[0].html).toContain(
+      'Phòng Hội Nghị A',
     );
 
     // Xác nhận ghi log đúng định dạng
@@ -105,14 +108,19 @@ describe('NotificationProcessor', () => {
       processor.process(mockReminderJob),
     ).resolves.toBeUndefined();
 
-    expect(mailerService.sendMail).toHaveBeenCalledWith(
-      expect.objectContaining({
-        to: 'reminder_user@test.com',
-        subject: expect.stringContaining(
-          '[Nhắc nhở] Cuộc họp "Họp Scrum Hằng Ngày" sắp diễn ra',
-        ),
-        html: expect.stringContaining('Phòng B202'),
-      }),
+    expect(mailerService.sendMail).toHaveBeenCalledTimes(1);
+    const reminderMailOptions = mailerService.sendMail.mock
+      .calls[0] as [
+      { to: string; subject: string; html: string },
+    ];
+    expect(reminderMailOptions[0].to).toBe(
+      'reminder_user@test.com',
+    );
+    expect(reminderMailOptions[0].subject).toContain(
+      '[Nhắc nhở] Cuộc họp "Họp Scrum Hằng Ngày" sắp diễn ra',
+    );
+    expect(reminderMailOptions[0].html).toContain(
+      'Phòng B202',
     );
   });
 
