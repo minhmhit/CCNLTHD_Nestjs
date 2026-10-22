@@ -12,13 +12,23 @@ import { RegisterDto } from './dto/register.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { Public } from 'src/common/decorators/public.decorator';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import {
+  ApiAuthTagDoc,
+  ApiLoginDoc,
+  ApiLogoutDoc,
+  ApiProfileDoc,
+  ApiRefreshDoc,
+  ApiRegisterDoc,
+} from 'src/swagger/docs/auth.doc';
 
+@ApiAuthTagDoc()
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
   @Post('register')
+  @ApiRegisterDoc()
   async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
@@ -26,6 +36,7 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @Post('login')
+  @ApiLoginDoc()
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
@@ -33,6 +44,7 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @Post('refresh')
+  @ApiRefreshDoc()
   async refresh(@Body() refreshTokenDto: RefreshTokenDto) {
     return this.authService.refreshTokens(
       refreshTokenDto.refreshToken,
@@ -41,11 +53,13 @@ export class AuthController {
 
   @HttpCode(HttpStatus.OK)
   @Post('logout')
+  @ApiLogoutDoc()
   async logout(@CurrentUser('id') userId: number) {
     return this.authService.logout(userId);
   }
 
   @Get('profile')
+  @ApiProfileDoc()
   getProfile(@CurrentUser() user: Record<string, unknown>) {
     return user;
   }

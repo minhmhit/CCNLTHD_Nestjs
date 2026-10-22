@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Realtime WebSocket Multi-Client Tester | Scheduling Enterprise</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+  <style>
+    :root {
+      --bg-dark: #0a0e17;
+      --card-bg: rgba(18, 26, 43, 0.75);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      
+      --cyan-primary: #06b6d4;
+      --cyan-glow: rgba(6, 182, 212, 0.25);
+      --emerald-accent: #10b981;
+      
+      --purple-primary: #a855f7;
+      --purple-glow: rgba(168, 85, 247, 0.25);
+      --amber-accent: #f59e0b;
+      
+      --danger: #ef4444;
+      --font-code: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: radial-gradient(circle at 50% 0%, #1e293b 0%, #0a0e17 80%);
+      color: var(--text-main);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    header {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(16px);
+      padding: 18px 28px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--cyan-primary), var(--purple-primary));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(6, 182, 212, 0.35);
+    }
+
+    .brand-text h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-text p {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-main);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+      flex: 1;
+    }
+
+    @media (max-width: 1024px) {
+      .grid-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .client-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(16px);
+      border-radius: 16px;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .client-card.client-a::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--cyan-primary), var(--emerald-accent));
+    }
+
+    .client-card.client-b::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--purple-primary), var(--amber-accent));
+    }
+
+    .client-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      padding-bottom: 14px;
+    }
+
+    .client-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .client-tag {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.05em;
+    }
+
+    .client-a .client-tag {
+      background: var(--cyan-glow);
+      color: var(--cyan-primary);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+    }
+
+    .client-b .client-tag {
+      background: var(--purple-glow);
+      color: var(--purple-primary);
+      border: 1px solid rgba(168, 85, 247, 0.3);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.25);
+    }
+
+    .status-badge.connected {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    input, textarea {
+      width: 100%;
+      background: rgba(10, 14, 23, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text-main);
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    input:focus, textarea:focus {
+      border-color: var(--cyan-primary);
+      box-shadow: 0 0 0 3px var(--cyan-glow);
+    }
+
+    .client-b input:focus, .client-b textarea:focus {
+      border-color: var(--purple-primary);
+      box-shadow: 0 0 0 3px var(--purple-glow);
+    }
+
+    .input-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 12px;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .btn-connect-a {
+      background: linear-gradient(135deg, #0891b2, #06b6d4);
+      color: #fff;
+      flex: 1;
+    }
+    .btn-connect-a:hover {
+      box-shadow: 0 0 15px var(--cyan-glow);
+    }
+
+    .btn-connect-b {
+      background: linear-gradient(135deg, #7c3aed, #a855f7);
+      color: #fff;
+      flex: 1;
+    }
+    .btn-connect-b:hover {
+      box-shadow: 0 0 15px var(--purple-glow);
+    }
+
+    .btn-join {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      flex: 1;
+    }
+    .btn-join:hover {
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    .logs-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 280px;
+      max-height: 380px;
+    }
+
+    .logs-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logs-header span {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .logs-window {
+      flex: 1;
+      background: rgba(5, 8, 15, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 12px;
+      overflow-y: auto;
+      font-family: var(--font-code);
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .log-entry {
+      background: rgba(255, 255, 255, 0.03);
+      border-left: 3px solid var(--text-muted);
+      border-radius: 4px;
+      padding: 8px 10px;
+      animation: fadeIn 0.25s ease;
+    }
+
+    .log-entry.event-scheduleCreated {
+      border-left-color: var(--emerald-accent);
+      background: rgba(16, 185, 129, 0.06);
+    }
+
+    .log-entry.event-scheduleCancelled {
+      border-left-color: var(--danger);
+      background: rgba(239, 68, 68, 0.06);
+    }
+
+    .log-entry.event-system {
+      border-left-color: var(--cyan-primary);
+    }
+
+    .log-time {
+      color: var(--text-muted);
+      font-size: 11px;
+      margin-right: 8px;
+    }
+
+    .log-event {
+      font-weight: 600;
+      color: #38bdf8;
+    }
+
+    .log-payload {
+      margin-top: 6px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: #cbd5e1;
+      font-size: 11px;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-icon">⚡</div>
+      <div class="brand-text">
+        <h1>Enterprise Realtime WebSocket Multi-Client Tester</h1>
+        <p>Kiểm thử Socket.IO Gateway (/schedules namespace) song hành cùng Swagger UI</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-secondary" onclick="clearAllLogs()">🧹 Xóa toàn bộ logs</button>
+    </div>
+  </header>
+
+  <div class="grid-container">
+    <!-- PANEL CLIENT A -->
+    <div class="client-card client-a">
+      <div class="client-header">
+        <div class="client-title">
+          <span class="client-tag">Client A</span>
+          <span style="font-weight: 600; font-size: 15px;">Instance Client 1</span>
+        </div>
+        <div id="statusA" class="status-badge">
+          <span class="status-dot"></span>
+          <span>Disconnected</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Server WebSocket URL</label>
+        <input type="text" id="urlA" value="http://localhost:3000/schedules">
+      </div>
+
+      <div class="input-row">
+        <div class="form-group">
+          <label>Bearer JWT Access Token</label>
+          <input type="text" id="tokenA" placeholder="Dán JWT Access Token từ Swagger POST /auth/login">
+        </div>
+        <div class="form-group">
+          <label>Resource ID (Room)</label>
+          <input type="number" id="roomA" value="1" min="1">
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button id="btnConnectA" class="btn btn-connect-a" onclick="toggleConnect('A')">⚡ Connect</button>
+        <button id="btnJoinA" class="btn btn-join" onclick="joinRoom('A')">🚪 Join Room</button>
+      </div>
+
+      <div class="logs-container">
+        <div class="logs-header">
+          <span>Realtime Event Logs (Client A)</span>
+          <button class="btn btn-secondary" style="padding: 2px 8px; font-size: 11px;" onclick="clearLogs('A')">Clear</button>
+        </div>
+        <div id="logsA" class="logs-window"></div>
+      </div>
+    </div>
+
+    <!-- PANEL CLIENT B -->
+    <div class="client-card client-b">
+      <div class="client-header">
+        <div class="client-title">
+          <span class="client-tag">Client B</span>
+          <span style="font-weight: 600; font-size: 15px;">Instance Client 2 (Cluster Test)</span>
+        </div>
+        <div id="statusB" class="status-badge">
+          <span class="status-dot"></span>
+          <span>Disconnected</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Server WebSocket URL</label>
+        <input type="text" id="urlB" value="http://localhost:3000/schedules">
+      </div>
+
+      <div class="input-row">
+        <div class="form-group">
+          <label>Bearer JWT Access Token</label>
+          <input type="text" id="tokenB" placeholder="Dán JWT Access Token từ Swagger POST /auth/login">
+        </div>
+        <div class="form-group">
+          <label>Resource ID (Room)</label>
+          <input type="number" id="roomB" value="1" min="1">
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button id="btnConnectB" class="btn btn-connect-b" onclick="toggleConnect('B')">⚡ Connect</button>
+        <button id="btnJoinB" class="btn btn-join" onclick="joinRoom('B')">🚪 Join Room</button>
+      </div>
+
+      <div class="logs-container">
+        <div class="logs-header">
+          <span>Realtime Event Logs (Client B)</span>
+          <button class="btn btn-secondary" style="padding: 2px 8px; font-size: 11px;" onclick="clearLogs('B')">Clear</button>
+        </div>
+        <div id="logsB" class="logs-window"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const clients = {
+      A: { socket: null, connected: false },
+      B: { socket: null, connected: false }
+    };
+
+    function getTimeString() {
+      const d = new Date();
+      return d.toTimeString().split(' ')[0] + '.' + String(d.getMilliseconds()).padStart(3, '0');
+    }
+
+    function addLog(clientKey, eventName, payload, type = 'normal') {
+      const logsEl = document.getElementById(`logs${clientKey}`);
+      const entry = document.createElement('div');
+      entry.className = `log-entry event-${eventName} ${type}`;
+      
+      const payloadStr = typeof payload === 'object' ? JSON.stringify(payload, null, 2) : payload;
+      
+      entry.innerHTML = `
+        <div>
+          <span class="log-time">[${getTimeString()}]</span>
+          <span class="log-event">${eventName}</span>
+        </div>
+        ${payloadStr ? `<div class="log-payload">${payloadStr}</div>` : ''}
+      `;
+      logsEl.appendChild(entry);
+      logsEl.scrollTop = logsEl.scrollHeight;
+    }
+
+    function toggleConnect(clientKey) {
+      if (clients[clientKey].connected) {
+        disconnect(clientKey);
+      } else {
+        connect(clientKey);
+      }
+    }
+
+    function connect(clientKey) {
+      const url = document.getElementById(`url${clientKey}`).value.trim();
+      const token = document.getElementById(`token${clientKey}`).value.trim();
+      const statusEl = document.getElementById(`status${clientKey}`);
+      const btnConnect = document.getElementById(`btnConnect${clientKey}`);
+
+      if (!token) {
+        alert(`Vui lòng nhập JWT Access Token cho Client ${clientKey}! Bạn có thể lấy token từ Swagger UI: POST /auth/login.`);
+        return;
+      }
+
+      addLog(clientKey, 'system', `Đang kết nối tới ${url}...`, 'event-system');
+
+      try {
+        const socket = io(url, {
+          transports: ['websocket', 'polling'],
+          auth: { token: token },
+          extraHeaders: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        socket.on('connect', () => {
+          clients[clientKey].connected = true;
+          statusEl.className = 'status-badge connected';
+          statusEl.innerHTML = `<span class="status-dot"></span><span>Connected (${socket.id.slice(0, 8)})</span>`;
+          btnConnect.innerText = '🔌 Disconnect';
+          addLog(clientKey, 'system', `Kết nối thành công! Socket ID: ${socket.id}`, 'event-system');
+        });
+
+        socket.on('scheduleCreated', (data) => {
+          addLog(clientKey, 'scheduleCreated', data);
+        });
+
+        socket.on('scheduleCancelled', (data) => {
+          addLog(clientKey, 'scheduleCancelled', data);
+        });
+
+        socket.on('connect_error', (err) => {
+          addLog(clientKey, 'error', `Lỗi kết nối: ${err.message}`, 'event-scheduleCancelled');
+          disconnect(clientKey);
+        });
+
+        socket.on('disconnect', (reason) => {
+          clients[clientKey].connected = false;
+          statusEl.className = 'status-badge';
+          statusEl.innerHTML = `<span class="status-dot"></span><span>Disconnected</span>`;
+          btnConnect.innerText = '⚡ Connect';
+          addLog(clientKey, 'system', `Đã ngắt kết nối: ${reason}`, 'event-system');
+        });
+
+        clients[clientKey].socket = socket;
+      } catch (err) {
+        addLog(clientKey, 'error', `Không thể khởi tạo socket: ${err.message}`);
+      }
+    }
+
+    function disconnect(clientKey) {
+      if (clients[clientKey].socket) {
+        clients[clientKey].socket.disconnect();
+        clients[clientKey].socket = null;
+      }
+      clients[clientKey].connected = false;
+      const statusEl = document.getElementById(`status${clientKey}`);
+      const btnConnect = document.getElementById(`btnConnect${clientKey}`);
+      statusEl.className = 'status-badge';
+      statusEl.innerHTML = `<span class="status-dot"></span><span>Disconnected</span>`;
+      btnConnect.innerText = '⚡ Connect';
+    }
+
+    function joinRoom(clientKey) {
+      if (!clients[clientKey].connected || !clients[clientKey].socket) {
+        alert(`Client ${clientKey} chưa kết nối WebSocket! Vui lòng bấm Connect trước.`);
+        return;
+      }
+
+      const resourceId = parseInt(document.getElementById(`room${clientKey}`).value.trim(), 10) || 1;
+      clients[clientKey].socket.emit('joinRoom', { resourceId: resourceId }, (res) => {
+        addLog(clientKey, 'joinedRoomAck', res || `Đã tham gia room resource_${resourceId}`);
+      });
+      addLog(clientKey, 'system', `Đã gửi yêu cầu joinRoom: resource_${resourceId}`, 'event-system');
+    }
+
+    function clearLogs(clientKey) {
+      document.getElementById(`logs${clientKey}`).innerHTML = '';
+    }
+
+    function clearAllLogs() {
+      clearLogs('A');
+      clearLogs('B');
+    }
+  </script>
+</body>
+</html>

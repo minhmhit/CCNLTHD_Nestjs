@@ -8,7 +8,12 @@ import {
 } from '@nestjs/terminus';
 import { Public } from '../common/decorators/public.decorator';
 import { RedisHealthIndicator } from './redis.health';
+import {
+  ApiHealthCheckDoc,
+  ApiHealthTagDoc,
+} from 'src/swagger/docs/health.doc';
 
+@ApiHealthTagDoc()
 @Controller('health')
 export class HealthController {
   constructor(
@@ -21,6 +26,7 @@ export class HealthController {
   @Get()
   @HealthCheck()
   @Public()
+  @ApiHealthCheckDoc()
   check(): Promise<HealthCheckResult> {
     return this.health.check([
       () => this.db.pingCheck('database'),
