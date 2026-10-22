@@ -77,6 +77,7 @@ describe('ScheduleTasksService', () => {
 
       // Mock createQueryBuilder cho 2 câu truy vấn tuần tự
       const upcomingQb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         getMany: jest
@@ -145,6 +146,7 @@ describe('ScheduleTasksService', () => {
 
     it('should do nothing when there are no upcoming or expired schedules', async () => {
       const emptyQb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue([]),

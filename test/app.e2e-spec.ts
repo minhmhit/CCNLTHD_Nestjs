@@ -8,6 +8,7 @@ import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { getQueueToken } from '@nestjs/bullmq';
 import { Queue, Job } from 'bullmq';
+import { MailerService } from '@nestjs-modules/mailer';
 import { BookingNotificationJobData } from '../src/notifications/notification.processor';
 
 interface ApiSuccessResponse<T> {
@@ -55,7 +56,12 @@ describe('Authentication & Authorization (e2e)', () => {
     const moduleFixture: TestingModule =
       await Test.createTestingModule({
         imports: [AppModule],
-      }).compile();
+      })
+        .overrideProvider(MailerService)
+        .useValue({
+          sendMail: jest.fn().mockResolvedValue(true),
+        })
+        .compile();
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(
@@ -1260,6 +1266,7 @@ describe('Authentication & Authorization (e2e)', () => {
         await queue.getJob(`schedule_${body.data.id}`);
       expect(job).toBeDefined();
       expect(job?.data.scheduleId).toBe(body.data.id);
+      expect(job?.data.email).toBeDefined();
       expect(job?.opts.attempts).toBe(3);
       expect(job?.opts.backoff).toEqual({
         type: 'exponential',

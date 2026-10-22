@@ -17,7 +17,18 @@ import { UpdateScheduleStatusDto } from './dto/update-schedule-status.dto';
 import { QueryScheduleDto } from './dto/query-schedule.dto';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { ScheduleOwnershipGuard } from './guards/schedule-owner.guard';
+import {
+  ApiCreateScheduleDoc,
+  ApiFindAllSchedulesDoc,
+  ApiFindOneScheduleDoc,
+  ApiRemoveScheduleDoc,
+  ApiSchedulesTagDoc,
+  ApiTestRollbackScheduleDoc,
+  ApiUpdateScheduleDoc,
+  ApiUpdateScheduleStatusDoc,
+} from 'src/swagger/docs/schedules.doc';
 
+@ApiSchedulesTagDoc()
 @Controller('schedules')
 export class SchedulesController {
   constructor(
@@ -25,27 +36,31 @@ export class SchedulesController {
   ) {}
 
   @Get()
+  @ApiFindAllSchedulesDoc()
   findAll(@Query() query: QueryScheduleDto) {
     return this.schedulesService.findAll(query);
   }
 
   @Get(':id')
+  @ApiFindOneScheduleDoc()
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.schedulesService.findById(id);
   }
 
   @Post()
+  @ApiCreateScheduleDoc()
   create(
     @Body() createScheduleDto: CreateScheduleDto,
-    @CurrentUser('id') userId: number,
+    @CurrentUser() user: { id: number; email: string },
   ) {
     return this.schedulesService.create(
       createScheduleDto,
-      userId,
+      user,
     );
   }
 
   @Post('test-rollback')
+  @ApiTestRollbackScheduleDoc()
   testRollback(
     @Body() createScheduleDto: CreateScheduleDto,
     @CurrentUser('id') userId: number,
@@ -58,6 +73,7 @@ export class SchedulesController {
 
   @Patch(':id')
   @UseGuards(ScheduleOwnershipGuard)
+  @ApiUpdateScheduleDoc()
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateScheduleDto: UpdateScheduleDto,
@@ -70,6 +86,7 @@ export class SchedulesController {
 
   @Patch(':id/status')
   @UseGuards(ScheduleOwnershipGuard)
+  @ApiUpdateScheduleStatusDoc()
   updateStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body()
@@ -83,6 +100,7 @@ export class SchedulesController {
 
   @Delete(':id')
   @UseGuards(ScheduleOwnershipGuard)
+  @ApiRemoveScheduleDoc()
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.schedulesService.remove(id);
   }
