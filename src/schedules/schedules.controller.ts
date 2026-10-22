@@ -37,11 +37,11 @@ export class SchedulesController {
   @Post()
   create(
     @Body() createScheduleDto: CreateScheduleDto,
-    @CurrentUser('id') userId: number,
+    @CurrentUser() user: { id: number; email: string },
   ) {
     return this.schedulesService.create(
       createScheduleDto,
-      userId,
+      user,
     );
   }
 

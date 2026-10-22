@@ -4,6 +4,7 @@ import {
   ConfigModule,
   ConfigService,
 } from '@nestjs/config';
+import { MailerModule } from '@nestjs-modules/mailer';
 import { NotificationProcessor } from './notification.processor';
 
 @Module({
@@ -27,8 +28,36 @@ import { NotificationProcessor } from './notification.processor';
     BullModule.registerQueue({
       name: 'booking-notification',
     }),
+    MailerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        transport: {
+          host: configService.getOrThrow<string>(
+            'MAIL_HOST',
+          ),
+          port: Number(
+            configService.getOrThrow<string>('MAIL_PORT'),
+          ),
+          secure: false,
+          auth: {
+            user: configService.getOrThrow<string>(
+              'MAIL_USER',
+            ),
+            pass: configService.getOrThrow<string>(
+              'MAIL_PASS',
+            ),
+          },
+        },
+        defaults: {
+          from: configService.getOrThrow<string>(
+            'MAIL_FROM',
+          ),
+        },
+      }),
+    }),
   ],
   providers: [NotificationProcessor],
-  exports: [BullModule],
+  exports: [BullModule, MailerModule],
 })
 export class NotificationsModule {}

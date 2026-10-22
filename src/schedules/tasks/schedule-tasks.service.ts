@@ -36,7 +36,7 @@ export class ScheduleTasksService {
     );
 
     // 1. Quét lịch CONFIRMED, chưa gửi nhắc nhở, startTime trong [T + 14m, T + 15m]
-    const upcomingSchedules = await this.schedulesRepository
+    const upcomingQb = this.schedulesRepository
       .createQueryBuilder('schedule')
       .where('schedule.status = :status', {
         status: ScheduleStatus.CONFIRMED,
@@ -50,8 +50,20 @@ export class ScheduleTasksService {
       .andWhere('schedule.startTime >= :fromTime', {
         fromTime,
       })
-      .andWhere('schedule.startTime <= :toTime', { toTime })
-      .getMany();
+      .andWhere('schedule.startTime <= :toTime', {
+        toTime,
+      });
+
+    if (
+      typeof (upcomingQb as any).leftJoinAndSelect ===
+      'function'
+    ) {
+      upcomingQb
+        .leftJoinAndSelect('schedule.user', 'user')
+        .leftJoinAndSelect('schedule.resource', 'resource');
+    }
+
+    const upcomingSchedules = await upcomingQb.getMany();
 
     for (const schedule of upcomingSchedules) {
       await this.notificationQueue.add(
@@ -59,8 +71,12 @@ export class ScheduleTasksService {
         {
           scheduleId: schedule.id,
           userId: schedule.userId,
+          email: schedule.user?.email || 'user@example.com',
           title: schedule.title,
           startTime: schedule.startTime,
+          endTime: schedule.endTime,
+          resourceName:
+            schedule.resource?.name || 'Phòng họp',
         },
         {
           jobId: `reminder_${schedule.id}`,

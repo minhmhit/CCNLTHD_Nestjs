@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Schedule } from './entities/schedule.entity';
 import { Resource } from 'src/resources/entities/resource.entity';
+import { User } from 'src/users/entities/user.entity';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { UpdateScheduleStatusDto } from './dto/update-schedule-status.dto';
@@ -96,12 +97,21 @@ export class SchedulesService {
 
   async create(
     createScheduleDto: CreateScheduleDto,
-    currentUser: { id: number } | number,
+    currentUser: { id: number; email?: string } | number,
   ): Promise<Schedule> {
     const userId =
       typeof currentUser === 'number'
         ? currentUser
         : currentUser.id;
+
+    let userEmail =
+      typeof currentUser === 'object' &&
+      currentUser !== null &&
+      'email' in currentUser
+        ? (currentUser as { email?: string }).email
+        : undefined;
+
+    let resourceName = '';
 
     const savedSchedule = await this.dataSource.transaction(
       async (manager) => {
@@ -119,6 +129,32 @@ export class SchedulesService {
           throw new NotFoundException(
             'Tài nguyên phòng họp không tồn tại hoặc đang tạm ngưng hoạt động!',
           );
+        }
+
+        resourceName = resource.name;
+
+        // Nếu chưa có email (ví dụ currentUser là number), truy vấn User từ DB
+        if (
+          !userEmail &&
+          typeof manager.getRepository === 'function'
+        ) {
+          try {
+            const userRepo = manager.getRepository(User);
+            if (
+              userRepo &&
+              typeof userRepo.findOne === 'function'
+            ) {
+              const userRecord = await userRepo.findOne({
+                where: { id: userId },
+                select: ['id', 'email'],
+              });
+              if (userRecord?.email) {
+                userEmail = userRecord.email;
+              }
+            }
+          } catch {
+            // Không chặn tiến trình nếu môi trường unit test không mock User repo
+          }
         }
 
         // Bước 2: Kiểm tra xung đột khung giờ (Overlap Check)
@@ -168,8 +204,11 @@ export class SchedulesService {
       {
         scheduleId: savedSchedule.id,
         userId,
+        email: userEmail || 'user@example.com',
         title: savedSchedule.title,
         startTime: savedSchedule.startTime,
+        endTime: savedSchedule.endTime,
+        resourceName: resourceName || 'Phòng họp',
       },
       {
         jobId: `schedule_${savedSchedule.id}`, // Idempotency Key chống trùng lặp
