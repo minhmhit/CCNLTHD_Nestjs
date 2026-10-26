@@ -12,6 +12,7 @@ import {
 import { AddressInfo } from 'net';
 import { Server } from 'http';
 import { AppModule } from '../src/app.module';
+import { seedTestDatabase } from './test-seed.helper';
 
 interface ApiSuccessResponse<T> {
   success: boolean;
@@ -63,6 +64,9 @@ describe('SchedulesGateway (e2e - Realtime WebSocket)', () => {
       app.getHttpServer() as unknown as Server;
     const address = httpServer.address() as AddressInfo;
     port = address.port;
+
+    // Đảm bảo test users đã được tạo trên DB test
+    await seedTestDatabase(app);
 
     // Đăng nhập Admin
     const adminLoginRes = await request(app.getHttpServer())

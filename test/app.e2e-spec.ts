@@ -10,6 +10,7 @@ import { getQueueToken } from '@nestjs/bullmq';
 import { Queue, Job } from 'bullmq';
 import { MailerService } from '@nestjs-modules/mailer';
 import { BookingNotificationJobData } from '../src/notifications/notification.processor';
+import { seedTestDatabase } from './test-seed.helper';
 
 interface ApiSuccessResponse<T> {
   success: boolean;
@@ -72,6 +73,7 @@ describe('Authentication & Authorization (e2e)', () => {
       }),
     );
     await app.init();
+    await seedTestDatabase(app);
   });
 
   afterAll(async () => {

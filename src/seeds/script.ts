@@ -35,26 +35,26 @@ async function seed() {
   );
 
   // ── 1. Seed Users ──────────────────────────────────
-  const passwordHash = await bcrypt.hash('password123', 10);
+  const passwordHash = await bcrypt.hash('123456', 10);
 
   const [admin, member1, member2] =
     await usersRepository.save([
       {
-        email: 'admin@example.com',
+        email: 'mimmhit.sgu@gmail.com',
         password: passwordHash,
-        fullName: 'Admin System',
+        fullName: 'Mai Minh',
         role: Role.ADMIN,
       },
       {
-        email: 'member1@example.com',
+        email: 'nam@gmail.com',
         password: passwordHash,
-        fullName: 'Nguyen Van A',
+        fullName: 'Nam Bình Dương',
         role: Role.MEMBER,
       },
       {
-        email: 'member2@example.com',
+        email: 'hai@gmail.com.com',
         password: passwordHash,
-        fullName: 'Tran Thi B',
+        fullName: 'Hải Lâm Hà',
         role: Role.MEMBER,
       },
     ]);
