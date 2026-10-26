@@ -3,30 +3,20 @@ import {
   DocumentBuilder,
   SwaggerModule,
 } from '@nestjs/swagger';
+import {
+  SWAGGER_CUSTOM_CSS,
+  SWAGGER_CUSTOM_JS,
+} from './swagger-theme';
 
 export function setupSwagger(app: INestApplication): void {
   const swaggerDescription = `
-Hệ thống API Quản lý & Đặt lịch phòng họp trực tuyến (Enterprise Scheduling Platform).
-
-### 📡 Realtime WebSocket Specification (\`/schedules\` namespace)
-
-| Thông số | Giá trị chi tiết |
+| Mục | Chi tiết |
 | :--- | :--- |
-| **Namespace URL** | \`ws://localhost:3000/schedules\` (hoặc \`http://localhost:3000/schedules\`) |
-| **Giao thức** | Socket.IO (v4) / WebSocket Transports (\`websocket\`, \`polling\`) |
-| **Xác thực (Auth)** | Truyền Bearer JWT Token qua \`auth.token: "<accessToken>"\` hoặc \`extraHeaders.authorization: "Bearer <accessToken>"\` |
-| **Phân quyền** | Yêu cầu tài khoản hợp lệ (\`ADMIN\` hoặc \`MEMBER\`) |
-
-#### 📥 Client to Server Events
-| Event Name | Payload Format | Mô tả |
-| :--- | :--- | :--- |
-| \`joinRoom\` | \`{ "resourceId": 1 }\` (hoặc số/chuỗi \`1\`) | Client tham gia vào Room theo dõi phòng họp tương ứng (\`resource_1\`) |
-
-#### 📤 Server to Client Broadcast Events
-| Event Name | Room Mục Tiêu | Payload Format | Mô tả |
-| :--- | :--- | :--- | :--- |
-| \`scheduleCreated\` | \`resource_{resourceId}\` | \`Schedule\` Object | Phát tới tất cả client trong phòng khi có lịch đặt thành công mới |
-| \`scheduleCancelled\` | \`resource_{resourceId}\` | \`{ scheduleId, resourceId, cancelledAt }\` | Phát tới tất cả client trong phòng khi lịch họp bị hủy |
+| **Đề tài** | Tìm hiểu và ứng dụng NestJS |
+| **Học phần** | Các Công Nghệ Lập Trình Hiện Đại |
+| **GVHD** | Phạm Thi Vương |
+| **Nhóm** | 18 |
+| **Thành viên** | 1. **Mai Hoàng Minh** *(Leader)*<br/>2. **Nguyễn Đức Minh**<br/>3. **Nguyễn Hoài Nam**<br/>4. **Nguyễn Ngọc Hải** |
 `;
 
   const config = new DocumentBuilder()
@@ -65,5 +55,8 @@ Hệ thống API Quản lý & Đặt lịch phòng họp trực tuyến (Enterpr
     swaggerOptions: {
       persistAuthorization: true,
     },
+    customCss: SWAGGER_CUSTOM_CSS,
+    customJsStr: SWAGGER_CUSTOM_JS,
+    customSiteTitle: 'Enterprise Scheduling API Portal',
   });
 }
