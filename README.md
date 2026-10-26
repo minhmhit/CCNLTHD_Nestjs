@@ -84,8 +84,8 @@ Trong môi trường doanh nghiệp có cường độ sử dụng cao (High Con
 
 ```mermaid
 graph TD
-    Client["Client (Web Browser / Mobile App / Swagger UI)"] -->|HTTP / RESTful| Entry["main.ts (Port 3000)"]
-    Client -->|WebSocket (ws://)| WSGateway["SchedulesGateway (/schedules namespace)"]
+    Client["Client (Web Browser / Mobile App / Swagger UI)"] -->|"HTTP / RESTful"| Entry["main.ts (Port 3000)"]
+    Client -->|"WebSocket (ws://)"| WSGateway["SchedulesGateway (/schedules namespace)"]
 
     subgraph CommonLayer["Tầng Cắt Ngang Dùng Chung (src/common)"]
         RequestIdMid["1. RequestIdMiddleware (Gán UUID v4 x-request-id)"]
@@ -112,8 +112,8 @@ graph TD
 
     LogInterceptor --> AuthMod & UsersMod & ResMod & SchedMod & HealthMod
 
-    SchedMod -.->|1. Đẩy Job Bất Đồng Bộ| NotifMod
-    SchedMod -.->|2. Phát Broadcast Sự Kiện| WSGateway
+    SchedMod -.->|"1. Đẩy Job Bất Đồng Bộ"| NotifMod
+    SchedMod -.->|"2. Phát Broadcast Sự Kiện"| WSGateway
 
     subgraph Infrastructure["Tầng Hạ Tầng & Dữ Liệu"]
         PostgresDev[("PostgreSQL Dev (Port 5432)<br/>DB: schedule_app")]
@@ -123,13 +123,13 @@ graph TD
     end
 
     UsersMod & ResMod & SchedMod --> PostgresDev
-    ResMod <-->|Cache GET /resources| RedisStore
-    NotifMod <-->|booking-notification Queue| RedisStore
-    NotifMod -->|Gửi Email Template| SMTPMail
+    ResMod <-->|"Cache GET /resources"| RedisStore
+    NotifMod <-->|"booking-notification Queue"| RedisStore
+    NotifMod -->|"Gửi Email Template"| SMTPMail
     HealthMod --> PostgresDev & RedisStore
 
-    TransInterceptor -->|HTTP 200/201 Envelope| Client
-    HttpFilter -.->|HTTP 4xx/5xx Error Envelope| Client
+    TransInterceptor -->|"HTTP 200/201 Envelope"| Client
+    HttpFilter -.->|"HTTP 4xx/5xx Error Envelope"| Client
 ```
 
 ### 2. Chuỗi Vòng đời Request (Request Lifecycle Pipeline)
