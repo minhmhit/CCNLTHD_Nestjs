@@ -71,6 +71,10 @@ import { Schedule } from './schedules/entities/schedule.entity';
     HealthModule,
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath:
+        process.env.NODE_ENV === 'test'
+          ? '.env.test'
+          : '.env',
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',

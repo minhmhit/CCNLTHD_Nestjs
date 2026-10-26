@@ -20,6 +20,20 @@ services:
     volumes:
       - todos-redisdata:/data
 
+  postgres-test:
+    image: postgres:16
+    container_name: todos-postgres-test-ccnlthd
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: schedule_app_test 
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - '5433:5432' 
+    volumes:
+      - todos-pgdata-test:/var/lib/postgresql/data
+
 volumes:
   todos-pgdata:
   todos-redisdata:
+  todos-pgdata-test:
