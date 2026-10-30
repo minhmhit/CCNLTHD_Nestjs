@@ -18,9 +18,18 @@ export interface JwtSocketPayload {
   role: string;
 }
 
+const getWsNamespace = (): string => {
+  return (
+    process.env.WS_NAMESPACE ||
+    (process.env.NODE_ENV === 'test'
+      ? '/test/schedules'
+      : '/schedules')
+  );
+};
+
 @WebSocketGateway({
   cors: { origin: '*' },
-  namespace: '/schedules',
+  namespace: getWsNamespace(),
 })
 export class SchedulesGateway
   implements OnGatewayConnection, OnGatewayDisconnect
