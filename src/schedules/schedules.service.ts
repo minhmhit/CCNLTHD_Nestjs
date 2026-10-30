@@ -214,6 +214,7 @@ export class SchedulesService {
         jobId: `schedule_${savedSchedule.id}`, // Idempotency Key chống trùng lặp
         attempts: 3, // Thử lại tối đa 3 lần
         backoff: { type: 'exponential', delay: 2000 },
+        removeOnComplete: { count: 100 },
       },
     );
 

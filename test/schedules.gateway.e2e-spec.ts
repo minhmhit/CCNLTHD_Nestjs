@@ -11,6 +11,9 @@ import {
 } from 'socket.io-client';
 import { AddressInfo } from 'net';
 import { Server } from 'http';
+import { MailerService } from '@nestjs-modules/mailer';
+import { getQueueToken } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { AppModule } from '../src/app.module';
 import { seedTestDatabase } from './test-seed.helper';
 
@@ -47,7 +50,12 @@ describe('SchedulesGateway (e2e - Realtime WebSocket)', () => {
     const moduleFixture: TestingModule =
       await Test.createTestingModule({
         imports: [AppModule],
-      }).compile();
+      })
+        .overrideProvider(MailerService)
+        .useValue({
+          sendMail: jest.fn().mockResolvedValue(true),
+        })
+        .compile();
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(
@@ -126,6 +134,16 @@ describe('SchedulesGateway (e2e - Realtime WebSocket)', () => {
     }
     if (clientB && clientB.connected) {
       clientB.disconnect();
+    }
+    try {
+      const queue = app.get<Queue>(
+        getQueueToken('booking-notification'),
+      );
+      if (queue) {
+        await queue.obliterate({ force: true });
+      }
+    } catch {
+      // Bỏ qua nếu queue đã đóng
     }
     await app.close();
   });

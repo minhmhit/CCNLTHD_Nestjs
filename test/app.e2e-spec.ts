@@ -77,6 +77,16 @@ describe('Authentication & Authorization (e2e)', () => {
   });
 
   afterAll(async () => {
+    try {
+      const queue = app.get<Queue>(
+        getQueueToken('booking-notification'),
+      );
+      if (queue) {
+        await queue.obliterate({ force: true });
+      }
+    } catch {
+      // Bỏ qua nếu queue đã đóng
+    }
     await app.close();
   });
 
