@@ -1,0 +1,15 @@
+node_modules
+dist
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+report
+test
+*.md
+.oxlintrc.json
+.prettierrc
+eslint.config.mjs
+jest.config.ts
+

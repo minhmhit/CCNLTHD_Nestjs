@@ -1,24 +1,77 @@
 services:
   postgres:
     image: postgres:16
-    container_name: todos-postgres-ccnlthd
+    container_name: scheduling-postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin123
-      POSTGRES_DB: schedule_app
+      POSTGRES_USER: ${DB_USER:-admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-admin123}
+      POSTGRES_DB: ${DB_NAME:-schedule_app}
       TZ: Asia/Ho_Chi_Minh
     ports:
-      - '5432:5432'
+      - '${DB_PORT:-5432}:5432'
     volumes:
       - todos-pgdata:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-admin} -d ${DB_NAME:-schedule_app}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
-    container_name: todos-redis-ccnlthd
+    container_name: scheduling-redis
+    restart: unless-stopped
     ports:
-      - '6379:6379'
+      - '${REDIS_PORT:-6379}:6379'
     volumes:
       - todos-redisdata:/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: scheduling-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-admin}
+      DB_PASSWORD: ${DB_PASSWORD:-admin123}
+      DB_NAME: ${DB_NAME:-schedule_app}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      BULL_PREFIX: bull
+      WS_NAMESPACE: /schedules
+      JWT_SECRET: ${JWT_SECRET:-hello!wheres_my_sausage}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-hello!wheres_my_sausage_refresh}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USER: ${MAIL_USER:-test@example.com}
+      MAIL_PASS: ${MAIL_PASS:-testpass}
+      MAIL_FROM: ${MAIL_FROM:-Scheduling App <no-reply@scheduling.com>}
+    ports:
+      - '${PORT:-3000}:3000'
+    networks:
+      - app-network
 
   postgres-test:
     image: postgres:16
@@ -26,14 +79,20 @@ services:
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin123
-      POSTGRES_DB: schedule_app_test 
+      POSTGRES_DB: schedule_app_test
       TZ: Asia/Ho_Chi_Minh
     ports:
-      - '5433:5432' 
+      - '5433:5432'
     volumes:
       - todos-pgdata-test:/var/lib/postgresql/data
+    networks:
+      - app-network
 
 volumes:
   todos-pgdata:
   todos-redisdata:
   todos-pgdata-test:
+
+networks:
+  app-network:
+    driver: bridge
