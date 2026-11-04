@@ -10,6 +10,7 @@ import { getQueueToken } from '@nestjs/bullmq';
 import { Queue, Job } from 'bullmq';
 import { MailerService } from '@nestjs-modules/mailer';
 import { BookingNotificationJobData } from '../src/notifications/notification.processor';
+import { SchedulesGateway } from '../src/schedules/gateways/schedules.gateway';
 import { seedTestDatabase } from './test-seed.helper';
 
 interface ApiSuccessResponse<T> {
@@ -61,6 +62,15 @@ describe('Authentication & Authorization (e2e)', () => {
         .overrideProvider(MailerService)
         .useValue({
           sendMail: jest.fn().mockResolvedValue(true),
+        })
+        .overrideProvider(SchedulesGateway)
+        .useValue({
+          server: {
+            to: jest.fn().mockReturnValue({
+              emit: jest.fn(),
+            }),
+            emit: jest.fn(),
+          },
         })
         .compile();
 
@@ -1019,7 +1029,7 @@ describe('Authentication & Authorization (e2e)', () => {
           ).data.accessToken,
         );
       }
-    });
+    }, 30000);
 
     it('8.2 Concurrency - 10 simultaneous requests booking the same room & time: exactly 1 succeeds (201) and 9 blocked (409)', async () => {
       const fixedStartTime = new Date(

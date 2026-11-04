@@ -74,6 +74,7 @@ export class ScheduleTasksService {
           jobId: `reminder_${schedule.id}`,
           attempts: 3,
           backoff: { type: 'exponential', delay: 2000 },
+          removeOnComplete: { count: 100 },
         },
       );
 

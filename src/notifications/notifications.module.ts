@@ -23,6 +23,12 @@ import { NotificationProcessor } from './notification.processor';
             6379,
           ),
         },
+        prefix: configService.get<string>(
+          'BULL_PREFIX',
+          configService.get<string>('NODE_ENV') === 'test'
+            ? 'bull_test'
+            : 'bull',
+        ),
       }),
     }),
     BullModule.registerQueue({

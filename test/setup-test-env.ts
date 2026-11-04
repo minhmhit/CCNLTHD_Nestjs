@@ -13,3 +13,5 @@ process.env.DB_PORT = '5433';
 process.env.DB_NAME = 'schedule_app_test';
 process.env.DB_USER = 'admin';
 process.env.DB_PASSWORD = 'admin123';
+process.env.BULL_PREFIX = 'bull_test';
+process.env.WS_NAMESPACE = '/test/schedules';

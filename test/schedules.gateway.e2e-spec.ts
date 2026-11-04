@@ -11,6 +11,7 @@ import {
 } from 'socket.io-client';
 import { AddressInfo } from 'net';
 import { Server } from 'http';
+import { MailerService } from '@nestjs-modules/mailer';
 import { AppModule } from '../src/app.module';
 import { seedTestDatabase } from './test-seed.helper';
 
@@ -32,6 +33,8 @@ interface LoginResponseBody {
 }
 
 describe('SchedulesGateway (e2e - Realtime WebSocket)', () => {
+  const wsNamespace =
+    process.env.WS_NAMESPACE || '/test/schedules';
   let app: INestApplication<App>;
   let port: number;
   let adminToken: string;
@@ -47,7 +50,12 @@ describe('SchedulesGateway (e2e - Realtime WebSocket)', () => {
     const moduleFixture: TestingModule =
       await Test.createTestingModule({
         imports: [AppModule],
-      }).compile();
+      })
+        .overrideProvider(MailerService)
+        .useValue({
+          sendMail: jest.fn().mockResolvedValue(true),
+        })
+        .compile();
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(
@@ -133,7 +141,7 @@ describe('SchedulesGateway (e2e - Realtime WebSocket)', () => {
   describe('WebSocket Authentication & Connection Guards', () => {
     it('should reject connection when JWT token is missing', async () => {
       const socket = io(
-        `http://localhost:${port}/schedules`,
+        `http://localhost:${port}${wsNamespace}`,
         {
           transports: ['websocket'],
           forceNew: true,
@@ -155,7 +163,7 @@ describe('SchedulesGateway (e2e - Realtime WebSocket)', () => {
 
     it('should reject connection when JWT token is invalid', async () => {
       const socket = io(
-        `http://localhost:${port}/schedules`,
+        `http://localhost:${port}${wsNamespace}`,
         {
           auth: { token: 'invalid.jwt.token' },
           transports: ['websocket'],
@@ -178,7 +186,7 @@ describe('SchedulesGateway (e2e - Realtime WebSocket)', () => {
 
     it('should allow connection when valid JWT token is provided', async () => {
       const socket = io(
-        `http://localhost:${port}/schedules`,
+        `http://localhost:${port}${wsNamespace}`,
         {
           auth: { token: `Bearer ${member1Token}` },
           transports: ['websocket'],
@@ -203,18 +211,24 @@ describe('SchedulesGateway (e2e - Realtime WebSocket)', () => {
   describe('Realtime Scheduling Synchronization (Room Broadcast)', () => {
     it('Client A & Client B should connect and join room successfully', async () => {
       // Kết nối Client A
-      clientA = io(`http://localhost:${port}/schedules`, {
-        auth: { token: `Bearer ${member1Token}` },
-        transports: ['websocket'],
-        forceNew: true,
-      });
+      clientA = io(
+        `http://localhost:${port}${wsNamespace}`,
+        {
+          auth: { token: `Bearer ${member1Token}` },
+          transports: ['websocket'],
+          forceNew: true,
+        },
+      );
 
       // Kết nối Client B
-      clientB = io(`http://localhost:${port}/schedules`, {
-        auth: { token: member2Token },
-        transports: ['websocket'],
-        forceNew: true,
-      });
+      clientB = io(
+        `http://localhost:${port}${wsNamespace}`,
+        {
+          auth: { token: member2Token },
+          transports: ['websocket'],
+          forceNew: true,
+        },
+      );
 
       await Promise.all([
         new Promise<void>((resolve, reject) => {
